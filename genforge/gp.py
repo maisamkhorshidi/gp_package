@@ -22,7 +22,10 @@ DEFAULT_PARAMETERS = {
     'runcontrol_minimisation': True,                    # True if the problem is minimization and False if it is maximization
     'runcontrol_tolfit': 1e-9,                          # Tolfit means if fitness doesn't change as much as tolfit it is considered not improving
     'runcontrol_plotfitness': True,                     # plot the stats
+    'runcontrol_plotrankall': True,
+    'runcontrol_plotrankbest': True,
     'runcontrol_plotformat': ['png'],                   # plot format
+    'runcontrol_plotfolder': '',                        # plot folder
     'softmax_learning_rate': [0.01],                    # num_pop: The learning rate for the softmax function
     'softmax_optimizer_type': ['adam'],                 # num_pop: the optimizer type: adam, sgd, rmsprop
     'softmax_initializer': ['glorot_uniform'],          # num_pop: the initializer: glorot_uniform, he_normal, random_normal
@@ -180,7 +183,11 @@ class gpclassifier:
     def plotstats(self):
         """Plot the stats"""
         from .gp_plotfitness import gp_plotfitness
+        from .gp_plotrankall import gp_plotrankall
+        from .gp_plotrankbest import gp_plotrankbest
         gp_plotfitness(self)
+        gp_plotrankall(self)
+        gp_plotrankbest(self)
     
     @classmethod
     def initialize(cls, **parameters):

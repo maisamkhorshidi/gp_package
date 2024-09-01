@@ -36,6 +36,12 @@ def gp_evaluate_ensemble(gp):
     best_loss = np.full(num_individuals_pop1, np.inf)
     best_idx = [None for _ in range(num_individuals_pop1)]  # To store the best ensemble combination indices
     
+    id_ens = np.zeros((pop_size**num_pop, num_pop), dtype = int)
+    fit_ens_tr = np.full((pop_size**num_pop), np.inf)
+    fit_ens_val = np.full((pop_size**num_pop), np.inf)
+    fit_ens_ts = np.full((pop_size**num_pop), np.inf)
+    weights = [None for _ in range(pop_size**num_pop)]
+    counter = 0
     # Iterate through each individual in the first population
     for id_ind in range(num_individuals_pop1):
         prob_train_ensemble = [prob_train_pop1[id_ind]]  # Start with the individual from the first population
@@ -79,7 +85,11 @@ def gp_evaluate_ensemble(gp):
             # Optimize the weights and biases
             # result = minimize(loss_function, initial_params, bounds=bounds, constraints=constraints)
             result = minimize(loss_function, initial_weights, bounds=bounds, constraints=constraints)
-
+            
+            id_ens[counter, :] = np.array([id_ind] + list(combo), dtype = int)
+            fit_ens_tr[counter] = copy.deepcopy(result.fun)
+            weights[counter] = copy.deepcopy(result.x)
+            counter += 1
             # If this combination has the best loss, store it
             if result.fun < best_loss[id_ind]:
                 best_loss[id_ind] = copy.deepcopy(result.fun)
@@ -90,7 +100,23 @@ def gp_evaluate_ensemble(gp):
                     best_ensemble_prob[id_ind] += result.x[k] * prob_combo[k]
                 # best_ensemble_prob[id_ind] += result.x[-num_class:]
                 best_idx[id_ind] = [id_ind] + list(combo)  # Store the indices of the best combination
-
+    
+    # Compute all ensemble fitness for validation and test
+    if y_val is not None:
+        for idx_en in range(id_ens.shape[0]):
+            prob_val_combo = [copy.deepcopy(gp.individuals['prob']['isolated']['validation'][p][int(id_ens[idx_en, p])]) for p in range(num_pop)]
+            combined_prob_val = np.zeros_like(prob_val_combo[0])
+            for k in range(len(prob_val_combo)):
+                combined_prob_val += weights[id_ind][k] * prob_val_combo[k]
+            fit_ens_val[id_ind] =    SparseCategoricalCrossentropy()(y_val, combined_prob_val).numpy()
+    if y_test is not None:
+        for idx_en in range(id_ens.shape[0]):
+            prob_test_combo = [copy.deepcopy(gp.individuals['prob']['isolated']['test'][p][int(id_ens[idx_en, p])]) for p in range(num_pop)]
+            combined_prob_ts = np.zeros_like(prob_test_combo[0])
+            for k in range(len(prob_test_combo)):
+                combined_prob_ts += weights[id_ind][k] * prob_test_combo[k]
+            fit_ens_ts[id_ind] =    SparseCategoricalCrossentropy()(y_test, combined_prob_ts).numpy()
+    
     # Compute ensemble complexity
     complexity_ensemble = np.zeros((pop_size))
     for id_ind in range(pop_size):
@@ -126,9 +152,10 @@ def gp_evaluate_ensemble(gp):
         yp_en_tr[id_ind] =          np.argmax(best_ensemble_prob[id_ind], axis=1)
         depth_en[id_ind] =          list()
         num_nodes_en[id_ind] =      list()
-        for id_pop in range(num_pop):
-            num_nodes_en[id_ind].append(copy.deepcopy(num_nodes[id_pop][int(en_idx[id_ind,id_pop])]))
-            depth_en[id_ind].append(copy.deepcopy(depth[id_pop][int(en_idx[id_ind,id_pop])]))
+        
+        for pop_id in range(num_pop):
+            num_nodes_en[id_ind].append(copy.deepcopy(num_nodes[pop_id][int(en_idx[id_ind,pop_id])]))
+            depth_en[id_ind].append(copy.deepcopy(depth[pop_id][int(en_idx[id_ind,pop_id])]))
 
         # Repeat for validation and test sets if available
         if y_val is not None:
@@ -176,6 +203,10 @@ def gp_evaluate_ensemble(gp):
         yp_en_ts,
         depth_en,
         num_nodes_en,
+        id_ens,
+        fit_ens_tr,
+        fit_ens_val,
+        fit_ens_ts,
     ]
     return results_en
             

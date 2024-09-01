@@ -133,6 +133,10 @@ def gp_evalfitness_ord(gp):
     yp_en_ts =          copy.deepcopy(results_en[14])
     depth_en =          copy.deepcopy(results_en[15])
     num_nodes_en =      copy.deepcopy(results_en[16])
+    id_ens =            copy.deepcopy(results_en[17])
+    fit_ens_tr =        copy.deepcopy(results_en[18])
+    fit_ens_val =       copy.deepcopy(results_en[19])
+    fit_ens_ts =        copy.deepcopy(results_en[20])
     
     # Assigning the values
     gp.individuals['ensemble_weight'] =                         copy.deepcopy(en_weight)
@@ -182,6 +186,10 @@ def gp_evalfitness_ord(gp):
     gp.track['depth']['ensemble'][gen] =                        copy.deepcopy(gp.individuals['depth']['ensemble'])
     gp.track['num_nodes']['isolated'][gen] =                    copy.deepcopy(gp.individuals['num_nodes']['isolated'])
     gp.track['num_nodes']['ensemble'][gen] =                    copy.deepcopy(gp.individuals['num_nodes']['ensemble'])
+    gp.track['all_ensemble']['idx'][gen] =                      copy.deepcopy(id_ens)
+    gp.track['all_ensemble']['fitness']['train'][gen] =         copy.deepcopy(fit_ens_tr)
+    gp.track['all_ensemble']['fitness']['validation'][gen] =    copy.deepcopy(fit_ens_val)
+    gp.track['all_ensemble']['fitness']['test'][gen] =          copy.deepcopy(fit_ens_ts)               
     
     for id_pop in range(num_pop):
         gp.track['rank']['complexity']['isolated'][gen][:, id_pop] = np.argsort(gp.individuals['complexity']['isolated'][:, id_pop]) 

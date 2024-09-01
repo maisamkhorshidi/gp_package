@@ -88,7 +88,15 @@ def gp_track_param_ensemble(gp):
                     'isolated': [np.full((pop_size, num_pop), np.inf)],
                     'ensemble': [np.full((pop_size), np.inf)],
                     },
-                }
+                },
+            'all_ensemble':{
+                'idx': [None],
+                'fitness': {
+                    'train': [None],
+                    'validation': [None],
+                    'test': [None],
+                    },
+                },
             }
         
     else:
@@ -136,7 +144,10 @@ def gp_track_param_ensemble(gp):
         gp.track['rank']['fitness']['ensemble']['test'].append(np.full((pop_size), np.inf))
         gp.track['rank']['complexity']['isolated'].append(np.full((pop_size, num_pop), np.inf))
         gp.track['rank']['complexity']['ensemble'].append(np.full((pop_size), np.inf))
-        
+        gp.track['all_ensemble']['idx'].append(None)
+        gp.track['all_ensemble']['fitness']['train'].append(None)
+        gp.track['all_ensemble']['fitness']['validation'].append(None)
+        gp.track['all_ensemble']['fitness']['test'].append(None)
         
             
         

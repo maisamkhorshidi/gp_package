@@ -198,12 +198,12 @@ def gp_popbuild(gp):
                     new_pop[id_pop][build_count] = copy.deepcopy(parent)
                     gp.track['idx_minus']['reproduction'][gen][build_count, id_pop] = parent_index
                     # new_idx[build_count][jj] = gp.class_['idx'][gp.state['count']-1][parent_index][jj]
-                    build_count += 1
     
                     # Store fitness etc of copied individual if cache enabled
                     if gp.config['runcontrol']['usecache']:
                         gp_cache_enable(gp, id_pop, build_count, parent_index)
-
+                    
+                    build_count += 1
             # Crossover operator
             elif event_type == 3:
                 high_level_cross = False

@@ -1,3 +1,4 @@
+# t1 = time.time()
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
@@ -22,8 +23,9 @@ tf.keras.utils.disable_interactive_logging()
 # # Disable progress bars
 # class NoProgressBar(tf.keras.callbacks.Callback):
 #     def on_epoch_end(self, epoch, logs=None):
-#         pass
-    
+#         pas
+# t2 = time.time()
+# print(f'Load Time: {t2-t1}')
 #     def on_train_batch_end(self, batch, logs=None):
 #         pass
     
@@ -34,7 +36,7 @@ def gp_evaluate_softmax(gp, id_pop, id_ind, gene_out_tr, gene_out_val, gene_out_
     
     """
     Train a one-layer softmax function using Keras and evaluate the probabilities and losses.
-
+    
     Args:
     gp (object): The GP object containing individuals' gene outputs and training data.
     learning_rate (float): Learning rate for the optimizer.
@@ -48,7 +50,7 @@ def gp_evaluate_softmax(gp, id_pop, id_ind, gene_out_tr, gene_out_val, gene_out_
     decay (float): Learning rate decay.
     clipnorm (float): Norm for gradient clipping.
     clipvalue (float): Value for gradient clipping.
-
+    
     Returns:
     tuple: A tuple containing the evaluated probabilities and the loss value.
            (probabilities, loss)
@@ -78,7 +80,7 @@ def gp_evaluate_softmax(gp, id_pop, id_ind, gene_out_tr, gene_out_val, gene_out_
     if gene_out_val is not None:
         patience = gp.config['softmax']['patience'][id_pop]
         
-
+    
     # Choose the weight initializer
     if initializer == 'he_normal':
         init = HeNormal()
@@ -86,7 +88,7 @@ def gp_evaluate_softmax(gp, id_pop, id_ind, gene_out_tr, gene_out_val, gene_out_
         init = RandomNormal()
     elif initializer == 'glorot_uniform':
         init = GlorotUniform()  # Default
-
+    
     # Choose the regularization
     if regularization == 'l2':
         reg = l2(regularization_rate)
@@ -94,7 +96,8 @@ def gp_evaluate_softmax(gp, id_pop, id_ind, gene_out_tr, gene_out_val, gene_out_
         reg = l1(regularization_rate)
     else:
         reg = None  # No regularization
-
+    # t3 = time.time()
+    # print(f'Init Time: {t3-t2}')
     # Define the one-layer model with softmax activation
     model = Sequential([
         Dense(num_class, input_shape=(gene_out_tr.shape[1],), 
@@ -102,7 +105,7 @@ def gp_evaluate_softmax(gp, id_pop, id_ind, gene_out_tr, gene_out_val, gene_out_
               kernel_initializer=init,
               kernel_regularizer=reg)
     ])
-
+    
     # Choose the optimizer
     if optimizer_type == 'sgd':
         optimizer = SGD(learning_rate=learning_rate, momentum=momentum, decay=decay, clipnorm=clipnorm, clipvalue=clipvalue)
@@ -110,12 +113,13 @@ def gp_evaluate_softmax(gp, id_pop, id_ind, gene_out_tr, gene_out_val, gene_out_
         optimizer = RMSprop(learning_rate=learning_rate, decay=decay, clipnorm=clipnorm, clipvalue=clipvalue)
     elif optimizer_type == 'adam':
         optimizer = Adam(learning_rate=learning_rate, clipnorm=clipnorm, clipvalue=clipvalue)  # Default
-
+    
     # Compile the model with the chosen optimizer
     model.compile(optimizer=optimizer,
                   loss=SparseCategoricalCrossentropy(),
                   metrics=['accuracy'])
-
+    # t4 = time.time()
+    # print(f'Compile Time: {t4-t3}')
     # Define EarlyStopping callback if validation data is available
     if gene_out_val is not None:
         early_stopping = EarlyStopping(monitor='val_loss', patience=patience, restore_best_weights=True)
@@ -126,10 +130,14 @@ def gp_evaluate_softmax(gp, id_pop, id_ind, gene_out_tr, gene_out_val, gene_out_
                   epochs=epochs, batch_size=batch_size, verbose=0, callbacks=[early_stopping])#, NoProgressBar()])
     else:
         model.fit(gene_out_tr, ytr, epochs=epochs, batch_size=batch_size, verbose=0)#, callbacks=[NoProgressBar()])
-
+    
+    # t44 = time.time()
+    # print(f'Fit Time: {t44-t4}')
     # Predict probabilities on the training data
     prob_tr = model.predict(gene_out_tr)
     
+    # t5 = time.time()
+    # print(f'Predict Time: {t5-t44}')
     if gene_out_val is not None:
         prob_val = model.predict(gene_out_val)
     else:
@@ -142,6 +150,8 @@ def gp_evaluate_softmax(gp, id_pop, id_ind, gene_out_tr, gene_out_val, gene_out_
     
     # Calculate the loss on the training data
     loss_tr, _ = model.evaluate(gene_out_tr, ytr, verbose=0)
+    # t6 = time.time()
+    # print(f'Evaluate Time: {t6-t5}')
     
     if gene_out_val is not None:
         loss_val, _ = model.evaluate(gene_out_val, yval, verbose=0)
@@ -171,15 +181,17 @@ def gp_evaluate_softmax(gp, id_pop, id_ind, gene_out_tr, gene_out_val, gene_out_
     weights, biases = dense_layer.get_weights()
     biases = biases.reshape(1, -1)  # Reshape to (1, output_dim)
     weights_with_biases = np.concatenate([weights, biases], axis=0)  # Add biases as the last row
-    
+    # print(f'Loss Train: {loss_tr}')
+    # print(f'Loss Val: {loss_val}')
+    # print(f'Loss Val: {loss_ts}')
     # Assign to results list
     results = [prob_tr, prob_val, prob_ts, loss_tr, loss_val, loss_ts, yp_tr, yp_val, yp_ts, weights_with_biases]
         
-    
+        
     return results
-    
-# Example usage:
-# Assuming gp is already defined and populated with gene_output['train'], ytrain data, and num_class
-# probabilities, loss = evaluate_softmax(gp)
-# print(f"Probabilities: {probabilities}")
-# print(f"Loss: {loss}")
+        
+    # Example usage:
+    # Assuming gp is already defined and populated with gene_output['train'], ytrain data, and num_class
+    # probabilities, loss = evaluate_softmax(gp)
+    # print(f"Probabilities: {probabilities}")
+    # print(f"Loss: {loss}")

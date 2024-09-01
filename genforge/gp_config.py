@@ -205,8 +205,13 @@ def gp_config(gp):
         'supressConfig': gp.parameters['runcontrol_supressConfig'],
         'usecache': gp.parameters['runcontrol_usecache'],
         'minimisation': gp.parameters['runcontrol_minimisation'],
-        'plotfitness': gp.parameters['runcontrol_plotfitness'],
-        'plotformat': gp.parameters['runcontrol_plotformat'],
+        'plot': {
+            'fitness': gp.parameters['runcontrol_plotfitness'],
+            'rankall': gp.parameters['runcontrol_plotrankall'],
+            'rankbest': gp.parameters['runcontrol_plotrankbest'],
+            'format': gp.parameters['runcontrol_plotformat'],
+            'folder': gp.parameters['runcontrol_plotfolder'],
+            },
         }
     
     if num_pop > 1 and gp.parameters['runcontrol_agg_method'] is None:

@@ -29,7 +29,7 @@ def gp_picknode(gp, expression, node_type=0, id_pop=0):
     Returns:
     tuple: The selected node's value and its start and end positions (start_index, end_index).
     """
-    
+    expression2 = expression
     functions = tuple(gp.config['nodes']['functions']['name'][id_pop])
     
     not_done = True
@@ -111,7 +111,10 @@ def gp_picknode(gp, expression, node_type=0, id_pop=0):
             id_node_type = list(np.where(np.array(type_node) == node_type)[0])
             selected_node = random.choice([nodes[nn] for nn in id_node_type])
         else:
-            selected_node = gp_picknode(gp, expression, 0, id_pop)
+            # print('Warning: ', expression2)
+            # print('nodes: ', nodes)
+            return -1
+            # selected_node = gp_picknode(gp, expression2, 0, id_pop)
         return selected_node
     else:
         return -1

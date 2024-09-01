@@ -20,9 +20,9 @@ def gp_displaystats(gp):
     print(f"Generation:         {gen}")
     print(f"Best fitness:       {gp.state['best']['fitness']['ensemble']['train'][-1]:.4f}")
     print(f"Mean fitness:       {gp.state['mean_fitness']['ensemble']['train'][-1]:.4f}")
-    print(f"Best complexity:    {gp.state['best']['complexity']['ensemble'][-1]:.4f}")
-    print(f"Stall Generation:   {gp.state['stallgen']}")
-    print(f"Time Elapsed:       {gp.state['TimeElapsed'][-1]:.4f} sec")
+    print(f"Best complexity:    {int(gp.state['best']['complexity']['ensemble'][-1])}")
+    print(f"Stall Generation:   {int(gp.state['stallgen'])}")
+    print(f"Time Elapsed:       {gp.state['TimeElapsed'][-1]:.3f} sec")
     # # Display inputs in "best training" individual, if enabled.
     # if gp['runcontrol']['showBestInputs']:
     #     numx, hitvec = gpmodelvars(gp, 'best')

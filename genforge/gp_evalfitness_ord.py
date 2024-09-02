@@ -23,9 +23,27 @@ def gp_evalfitness_ord(gp):
     xval = gp.userdata['xval']
     xts = gp.userdata['xtest']
     
+    ytr = gp.userdata['ytrain']
+    yval = gp.userdata['yval']
+    yts = gp.userdata['ytest']
+    num_class = gp.config['runcontrol']['num_class']
+    
 
     for id_pop in range(num_pop):
         pop = popgp[id_pop]
+        # softmax parameters
+        learning_rate = gp.config['softmax']['learning_rate'][id_pop]
+        optimizer_type = gp.config['softmax']['optimizer_type'][id_pop]
+        initializer = gp.config['softmax']['initializer'][id_pop]
+        regularization = gp.config['softmax']['regularization'][id_pop]
+        regularization_rate = gp.config['softmax']['regularization_rate'][id_pop]
+        batch_size = gp.config['softmax']['batch_size'][id_pop]
+        epochs = gp.config['softmax']['epochs'][id_pop]
+        momentum = gp.config['softmax']['momentum'][id_pop]
+        decay = gp.config['softmax']['decay'][id_pop]
+        clipnorm = gp.config['softmax']['clipnorm'][id_pop]
+        clipvalue = gp.config['softmax']['learning_rate'][id_pop]
+        patience = gp.config['softmax']['patience'][id_pop]
         # Update state to index of the individual that is about to be evaluated
         for id_ind in range(pop_size):
             # print(' ')
@@ -73,8 +91,12 @@ def gp_evalfitness_ord(gp):
                     else:
                         complexities_isolated += gp_getnumnodes(ind[id_gene])
                     
+                args = ytr, yval, yts, num_class, learning_rate, optimizer_type, initializer,\
+                    regularization, regularization_rate, batch_size, epochs, momentum, decay,\
+                        clipnorm, clipvalue, patience, id_pop, id_ind, gene_out_tr, gene_out_val,\
+                            gene_out_ts
                 # Training the softmax
-                results = gp_evaluate_softmax(gp, id_pop, id_ind, gene_out_tr, gene_out_val, gene_out_ts)
+                results = gp_evaluate_softmax(args)
                 # Assign results
                 prob_tr =       results[0]
                 prob_val =      results[1]
@@ -112,8 +134,32 @@ def gp_evalfitness_ord(gp):
             gp.individuals['weight_genes'][id_pop][id_ind] =                        copy.deepcopy(weight_genes) 
             gp.individuals['complexity']['isolated'][id_ind, id_pop] =              copy.deepcopy(complexities_isolated)
             
-    # Evaluating the Ensembles
-    results_en = gp_evaluate_ensemble(gp)
+    if num_pop > 1:
+        # Evaluating the Ensembles
+        results_en = gp_evaluate_ensemble(gp)
+    else:
+        results_en = [None, 
+                      None,
+                      copy.deepcopy(gp.individuals['complexity']['isolated']),
+                      copy.deepcopy(gp.individuals['prob']['isolated']['train']),
+                      copy.deepcopy(gp.individuals['prob']['isolated']['validation']),
+                      copy.deepcopy(gp.individuals['prob']['isolated']['test']),
+                      copy.deepcopy(gp.individuals['fitness']['isolated']['train']),
+                      copy.deepcopy(gp.individuals['fitness']['isolated']['validation']),
+                      copy.deepcopy(gp.individuals['fitness']['isolated']['test']),
+                      copy.deepcopy(gp.individuals['loss']['isolated']['train']),
+                      copy.deepcopy(gp.individuals['loss']['isolated']['validation']),
+                      copy.deepcopy(gp.individuals['loss']['isolated']['test']),
+                      copy.deepcopy(gp.individuals['yp']['isolated']['train']),
+                      copy.deepcopy(gp.individuals['yp']['isolated']['validation']),
+                      copy.deepcopy(gp.individuals['yp']['isolated']['test']),
+                      copy.deepcopy(gp.individuals['depth']['isolated']),
+                      copy.deepcopy(gp.individuals['num_nodes']['isolated']),
+                      np.arange(0, pop_size),
+                      copy.deepcopy(gp.individuals['fitness']['isolated']['train']),
+                      copy.deepcopy(gp.individuals['fitness']['isolated']['validation']),
+                      copy.deepcopy(gp.individuals['fitness']['isolated']['test']),
+                      ]
     
     # Assigning the results
     en_weight =         copy.deepcopy(results_en[0])

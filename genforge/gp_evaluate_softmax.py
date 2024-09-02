@@ -32,7 +32,7 @@ tf.keras.utils.disable_interactive_logging()
 #     def on_test_batch_end(self, batch, logs=None):
 #         pass
     
-def gp_evaluate_softmax(gp, id_pop, id_ind, gene_out_tr, gene_out_val, gene_out_ts):
+def gp_evaluate_softmax(args):
     
     """
     Train a one-layer softmax function using Keras and evaluate the probabilities and losses.
@@ -55,30 +55,33 @@ def gp_evaluate_softmax(gp, id_pop, id_ind, gene_out_tr, gene_out_val, gene_out_
     tuple: A tuple containing the evaluated probabilities and the loss value.
            (probabilities, loss)
     """
+    ytr, yval, yts, num_class, learning_rate, optimizer_type, initializer, regularization,\
+        regularization_rate, batch_size, epochs, momentum, decay, clipnorm, clipvalue, patience,\
+            id_pop, id_ind, gene_out_tr, gene_out_val, gene_out_ts = args
     # Extract the gene output and labels from the GP object
     # gene_out_tr = gp.individuals['gene_output']['train'][id_pop][id_ind]
     # gene_out_val = gp.individuals['gene_output']['validation'][id_pop][id_ind]
     # gene_out_ts = gp.individuals['gene_output']['test'][id_pop][id_ind]
-    ytr = gp.userdata['ytrain']
-    yval = gp.userdata['yval']
-    yts = gp.userdata['ytest']
-    num_class = gp.config['runcontrol']['num_class']
+    # ytr = gp.userdata['ytrain']
+    # yval = gp.userdata['yval']
+    # yts = gp.userdata['ytest']
+    # num_class = gp.config['runcontrol']['num_class']
     
-    # softmax parameters
-    learning_rate = gp.config['softmax']['learning_rate'][id_pop]
-    optimizer_type = gp.config['softmax']['optimizer_type'][id_pop]
-    initializer = gp.config['softmax']['initializer'][id_pop]
-    regularization = gp.config['softmax']['regularization'][id_pop]
-    regularization_rate = gp.config['softmax']['regularization_rate'][id_pop]
-    batch_size = gp.config['softmax']['batch_size'][id_pop]
-    epochs = gp.config['softmax']['epochs'][id_pop]
-    momentum = gp.config['softmax']['momentum'][id_pop]
-    decay = gp.config['softmax']['decay'][id_pop]
-    clipnorm = gp.config['softmax']['clipnorm'][id_pop]
-    clipvalue = gp.config['softmax']['learning_rate'][id_pop]
+    # # softmax parameters
+    # learning_rate = gp.config['softmax']['learning_rate'][id_pop]
+    # optimizer_type = gp.config['softmax']['optimizer_type'][id_pop]
+    # initializer = gp.config['softmax']['initializer'][id_pop]
+    # regularization = gp.config['softmax']['regularization'][id_pop]
+    # regularization_rate = gp.config['softmax']['regularization_rate'][id_pop]
+    # batch_size = gp.config['softmax']['batch_size'][id_pop]
+    # epochs = gp.config['softmax']['epochs'][id_pop]
+    # momentum = gp.config['softmax']['momentum'][id_pop]
+    # decay = gp.config['softmax']['decay'][id_pop]
+    # clipnorm = gp.config['softmax']['clipnorm'][id_pop]
+    # clipvalue = gp.config['softmax']['learning_rate'][id_pop]
     
-    if gene_out_val is not None:
-        patience = gp.config['softmax']['patience'][id_pop]
+    # if gene_out_val is not None:
+    #     patience = gp.config['softmax']['patience'][id_pop]
         
     
     # Choose the weight initializer

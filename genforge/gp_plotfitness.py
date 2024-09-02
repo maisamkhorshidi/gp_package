@@ -19,7 +19,9 @@ plt.rcParams.update({
 def format_ytick(y, _):
     # Adjust tolerance for rounding
     tolerance = 1e-5
-    if abs(y) < 1e-3 or abs(y) > 1e3:
+    if y == 0:
+        return r'$0$'  # Specifically handle the case where y is exactly 0
+    elif abs(y) < 1e-3 or abs(y) > 1e3:
         return f'${{\\mathrm{{{y:.2e}}}}}$'  # Scientific notation for very small or large numbers
     elif abs(y - round(y)) < tolerance:
         return f'${{\\mathrm{{{int(y)}}}}}$'  # Integer formatting
@@ -116,21 +118,30 @@ def gp_plotfitness(gp):
             
             
             ax.grid(True, which='both', color='white', linestyle='-', linewidth=0.3)
-            # Plot ensemble fitness
-            ax.plot(generations, gp.state['best']['fitness']['ensemble'][key], label=r"$\mathrm{Best\ Ensemble}$", linewidth=2, color=colors[0])
-            ax.fill_between(generations,
-                            gp.state['mean_fitness']['ensemble'][key] - gp.state['std_fitness']['ensemble'][key],
-                            gp.state['mean_fitness']['ensemble'][key] + gp.state['std_fitness']['ensemble'][key],
-                            color=colors[0], alpha=0.3, label=r"$\mathrm{Mean}\pm\mathrm{Std\ Ensemble}$")
-
-            # Plot isolated populations' fitness
-            for id_pop in range(num_pop):
-                ax.plot(generations, gp.state['best']['fitness']['isolated'][key][id_pop],
-                        label=r"$\mathrm{Best\ Pop\ %d}$" % (id_pop + 1), linewidth=2, color=colors[id_pop + 1])
+            
+            if num_pop > 1:
+                # Plot ensemble fitness
+                ax.plot(generations, gp.state['best']['fitness']['ensemble'][key], label=r"$\mathrm{Best\ Ensemble}$", linewidth=2, color=colors[0])
                 ax.fill_between(generations,
-                                gp.state['mean_fitness']['isolated'][key][id_pop] - gp.state['std_fitness']['isolated'][key][id_pop],
-                                gp.state['mean_fitness']['isolated'][key][id_pop] + gp.state['std_fitness']['isolated'][key][id_pop],
-                                color=colors[id_pop + 1], alpha=0.3, label=r"$\mathrm{Mean}\pm\mathrm{Std\ Pop\ %d}$" % (id_pop + 1))
+                                gp.state['mean_fitness']['ensemble'][key] - gp.state['std_fitness']['ensemble'][key],
+                                gp.state['mean_fitness']['ensemble'][key] + gp.state['std_fitness']['ensemble'][key],
+                                color=colors[0], alpha=0.3, label=r"$\mathrm{Mean}\pm\mathrm{Std\ Ensemble}$")
+    
+                # Plot isolated populations' fitness
+                for id_pop in range(num_pop):
+                    ax.plot(generations, gp.state['best']['fitness']['isolated'][key][id_pop],
+                            label=r"$\mathrm{Best\ Pop\ %d}$" % (id_pop + 1), linewidth=2, color=colors[id_pop + 1])
+                    ax.fill_between(generations,
+                                    gp.state['mean_fitness']['isolated'][key][id_pop] - gp.state['std_fitness']['isolated'][key][id_pop],
+                                    gp.state['mean_fitness']['isolated'][key][id_pop] + gp.state['std_fitness']['isolated'][key][id_pop],
+                                    color=colors[id_pop + 1], alpha=0.3, label=r"$\mathrm{Mean}\pm\mathrm{Std\ Pop\ %d}$" % (id_pop + 1))
+            else:
+                # Plot fitness
+                ax.plot(generations, gp.state['best']['fitness']['ensemble'][key], label=r"$\mathrm{Best\ Individual}$", linewidth=2, color=colors[0])
+                ax.fill_between(generations,
+                                gp.state['mean_fitness']['ensemble'][key] - gp.state['std_fitness']['ensemble'][key],
+                                gp.state['mean_fitness']['ensemble'][key] + gp.state['std_fitness']['ensemble'][key],
+                                color=colors[0], alpha=0.3, label=r"$\mathrm{Mean}\pm\mathrm{Std\ Population}$")
 
             # Apply axis limits and labels
             ax.set_xlim((0, num_generations))

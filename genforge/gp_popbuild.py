@@ -89,6 +89,7 @@ def gp_popbuild(gp):
         if num2elite_en > 0:
             sort_index_en = np.argsort(gp.individuals['fitness']['ensemble']['train'])
             sort_index_id_en = gp.individuals['ensemble_idx'][sort_index_en, id_pop]
+            
             sort_index = list()
             for g in range(len(sort_index_id_en)):
                 if sort_index_id_en[g] not in sort_index:
@@ -113,7 +114,7 @@ def gp_popbuild(gp):
                         en_index.append(g)
                     if len(en_index) == num2elite_en:
                         break
-                    
+            
             copied_individual = list()
             for g in range(num2elite_en):
                 copied_individual.append(copy.deepcopy(gp.population[id_pop][en_index[g]]))
@@ -283,7 +284,8 @@ def gp_popbuild(gp):
                         # Produce 2 offspring
                         son, daughter = gp_crossover(mum_target_gene, dad_target_gene, gp, id_pop)
                         son_depth = gp_getdepth(son)
-
+                        
+                        crossover_success = False
                         # Check if both children meet size and depth constraints
                         if son_depth <= max_depth[id_pop]:
                             daughter_depth = gp_getdepth(daughter)

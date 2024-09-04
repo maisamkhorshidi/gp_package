@@ -134,32 +134,37 @@ def gp_evalfitness_ord(gp):
             gp.individuals['weight_genes'][id_pop][id_ind] =                        copy.deepcopy(weight_genes) 
             gp.individuals['complexity']['isolated'][id_ind, id_pop] =              copy.deepcopy(complexities_isolated)
             
-    if num_pop > 1:
-        # Evaluating the Ensembles
-        results_en = gp_evaluate_ensemble(gp)
-    else:
-        results_en = [None, 
-                      None,
-                      copy.deepcopy(gp.individuals['complexity']['isolated']),
-                      copy.deepcopy(gp.individuals['prob']['isolated']['train']),
-                      copy.deepcopy(gp.individuals['prob']['isolated']['validation']),
-                      copy.deepcopy(gp.individuals['prob']['isolated']['test']),
-                      copy.deepcopy(gp.individuals['fitness']['isolated']['train']),
-                      copy.deepcopy(gp.individuals['fitness']['isolated']['validation']),
-                      copy.deepcopy(gp.individuals['fitness']['isolated']['test']),
-                      copy.deepcopy(gp.individuals['loss']['isolated']['train']),
-                      copy.deepcopy(gp.individuals['loss']['isolated']['validation']),
-                      copy.deepcopy(gp.individuals['loss']['isolated']['test']),
-                      copy.deepcopy(gp.individuals['yp']['isolated']['train']),
-                      copy.deepcopy(gp.individuals['yp']['isolated']['validation']),
-                      copy.deepcopy(gp.individuals['yp']['isolated']['test']),
-                      copy.deepcopy(gp.individuals['depth']['isolated']),
-                      copy.deepcopy(gp.individuals['num_nodes']['isolated']),
-                      np.arange(0, pop_size),
-                      copy.deepcopy(gp.individuals['fitness']['isolated']['train']),
-                      copy.deepcopy(gp.individuals['fitness']['isolated']['validation']),
-                      copy.deepcopy(gp.individuals['fitness']['isolated']['test']),
-                      ]
+    # Evaluating the Ensembles
+    results_en = gp_evaluate_ensemble(gp)
+    # if num_pop > 1:
+    #     # Evaluating the Ensembles
+    #     results_en = gp_evaluate_ensemble(gp)
+    # else:
+    #     en_idx1 = np.zeros((pop_size, 1))
+    #     for ii in range(pop_size):
+    #         en_idx1[ii, 1] = ii
+    #     results_en = [np.ones((pop_size, 1)), 
+    #                   en_idx1,
+    #                   copy.deepcopy(gp.individuals['complexity']['isolated'].flatten()),
+    #                   copy.deepcopy(gp.individuals['prob']['isolated']['train']),
+    #                   copy.deepcopy(gp.individuals['prob']['isolated']['validation']),
+    #                   copy.deepcopy(gp.individuals['prob']['isolated']['test']),
+    #                   copy.deepcopy(gp.individuals['fitness']['isolated']['train'].flatten()),
+    #                   copy.deepcopy(gp.individuals['fitness']['isolated']['validation'].flatten()),
+    #                   copy.deepcopy(gp.individuals['fitness']['isolated']['test'].flatten()),
+    #                   copy.deepcopy(gp.individuals['loss']['isolated']['train'].flatten()),
+    #                   copy.deepcopy(gp.individuals['loss']['isolated']['validation'].flatten()),
+    #                   copy.deepcopy(gp.individuals['loss']['isolated']['test'].flatten()),
+    #                   copy.deepcopy(gp.individuals['yp']['isolated']['train']),
+    #                   copy.deepcopy(gp.individuals['yp']['isolated']['validation']),
+    #                   copy.deepcopy(gp.individuals['yp']['isolated']['test']),
+    #                   copy.deepcopy(gp.individuals['depth']['isolated']),
+    #                   copy.deepcopy(gp.individuals['num_nodes']['isolated']),
+    #                   np.arange(0, pop_size),
+    #                   copy.deepcopy(gp.individuals['fitness']['isolated']['train'].flatten()),
+    #                   copy.deepcopy(gp.individuals['fitness']['isolated']['validation'].flatten()),
+    #                   copy.deepcopy(gp.individuals['fitness']['isolated']['test'].flatten()),
+    #                   ]
     
     # Assigning the results
     en_weight =         copy.deepcopy(results_en[0])

@@ -29,6 +29,7 @@ def gp_evaluate_ensemble(gp):
     y_train = gp.userdata['ytrain']
     y_val = gp.userdata['yval']
     y_test = gp.userdata['ytest']
+    ybinary_tr = gp.userdata['ybinarytrain']
     
     # Prepare lists to hold the best results
     best_ensemble_prob = [None for _ in range(num_individuals_pop1)]
@@ -58,46 +59,77 @@ def gp_evaluate_ensemble(gp):
             for j, pop_id in enumerate(other_populations):
                 prob_combo.append(copy.deepcopy(gp.individuals['prob']['isolated']['train'][pop_id][combo[j]]))
             
+            def normal_weight(weights1):
+                normalized_weights = np.zeros_like(weights1)
+                for j in range(prob_combo[0].shape[1]):  # Iterate over classes
+                    start_idx = j * len(prob_combo)
+                    end_idx = (j + 1) * len(prob_combo)
+                    # Normalize weights for each class
+                    # print('')
+                    # print(weights1)
+                    class_weights = weights1[start_idx:end_idx]
+                    normalized_weights[start_idx:end_idx] = class_weights / np.sum(class_weights)
+                return normalized_weights
+            
+            def loss_function_other(prob_combo_tr, y_tr, weights1):
+                combined_prob = np.zeros_like(prob_combo_tr[0])
+
+                # Normalize weights for each class so that their sum equals 1
+                normalized_weights = normal_weight(weights1)
+                
+                for j in range(prob_combo_tr[0].shape[1]):  # Iterate over classes
+                    for k in range(len(prob_combo_tr)):  # Iterate over models
+                        combined_prob[:, j] += prob_combo_tr[k][:, j] * normalized_weights[j * len(prob_combo_tr) + k]
+                
+                combined_prob = np.clip(combined_prob, 1e-12, 1 - 1e-12)  # Avoid log(0) error
+                loss = SparseCategoricalCrossentropy()(y_tr, combined_prob)
+                # print(f'Loss: {loss.numpy()} with weights: {normalized_weights}')
+                return loss.numpy()
+            
             # Define the loss function for optimizing ensemble weights
-            def loss_function(weights):
+            def loss_function(weights1):
                 combined_prob = np.zeros_like(prob_combo[0])
                 # bias = weights[-num_class:]
-                for k in range(len(prob_combo)):
-                    combined_prob += weights[k] * prob_combo[k]
+                normalized_weights = normal_weight(weights1)
+                for j in range(prob_combo[0].shape[1]):
+                    for k in range(len(prob_combo)):
+                        combined_prob[:, j] += prob_combo[k][:, j] * normalized_weights[j * len(prob_combo) + k]
                 # combined_prob += bias
-                combined_prob = np.clip(combined_prob, 1e-15, 1 - 1e-15)  # Avoid log(0) error
-                loss = SparseCategoricalCrossentropy()(y_train, combined_prob)
-                return loss.numpy()
+                # combined_prob = np.clip(combined_prob, 1e-15, 1 - 1e-15)  # Avoid log(0) error
+                mse_loss = np.mean(np.sum(np.square(ybinary_tr - combined_prob), axis = 1))  # Replace cross-entropy with MSE
+                return mse_loss
 
             # Initial guess for weights (even distribution) and biases (zero)
-            initial_weights = np.ones(len(prob_combo)) / len(prob_combo)
+            initial_weights = np.ones(len(prob_combo) * prob_combo[0].shape[1]) / len(prob_combo)
             # initial_biases = np.zeros(num_class)
             # initial_params = np.concatenate([initial_weights, initial_biases])
             
             # Constraints: Weights must sum to 1
-            constraints = [{'type': 'eq', 'fun': lambda w: np.sum(w[:len(prob_combo)]) - 1}]
+            # constraints = [{'type': 'eq', 'fun': lambda w: np.sum(w[:len(prob_combo)]) - 1}]
             
             # Bounds: Weights and biases can be any real number
-            bounds = [(None, None) for _ in range(len(prob_combo))] #+ [(None, None)] * num_class
+            bounds = [(0, 1) for _ in range(len(initial_weights))]
 
             
             # print('a: ', id_ind, 'combo: ', ii, ' of ', len(combinations))
             # Optimize the weights and biases
             # result = minimize(loss_function, initial_params, bounds=bounds, constraints=constraints)
-            result = minimize(loss_function, initial_weights, bounds=bounds, constraints=constraints)
+            result = minimize(loss_function, initial_weights, method='COBYLA', bounds=bounds)#, bounds=bounds, constraints=constraints)
             
             id_ens[counter, :] = np.array([id_ind] + list(combo), dtype = int)
-            fit_ens_tr[counter] = copy.deepcopy(result.fun)
-            weights[counter] = copy.deepcopy(result.x)
+            fit_ens_tr[counter] = copy.deepcopy(loss_function_other(prob_combo, y_train, result.x))
+            weights[counter] = copy.deepcopy(normal_weight(result.x))
             counter += 1
             # If this combination has the best loss, store it
-            if result.fun < best_loss[id_ind]:
-                best_loss[id_ind] = copy.deepcopy(result.fun)
-                best_weights[id_ind] = copy.deepcopy(result.x)
+            if loss_function_other(prob_combo, y_train, result.x) < best_loss[id_ind]:
+                best_loss[id_ind] = copy.deepcopy(loss_function_other(prob_combo, y_train, result.x))
+                best_weights[id_ind] = copy.deepcopy(normal_weight(result.x))
                 best_ensemble_prob[id_ind] = np.zeros_like(prob_combo[0])
                 
-                for k in range(len(prob_combo)):
-                    best_ensemble_prob[id_ind] += result.x[k] * prob_combo[k]
+                for j in range(prob_combo[0].shape[1]):
+                    for k in range(len(prob_combo)):
+                        best_ensemble_prob[id_ind][:, j] += prob_combo[k][:, j] * best_weights[id_ind][j * len(prob_combo) + k]
+                        
                 # best_ensemble_prob[id_ind] += result.x[-num_class:]
                 best_idx[id_ind] = [id_ind] + list(combo)  # Store the indices of the best combination
     
@@ -106,15 +138,17 @@ def gp_evaluate_ensemble(gp):
         for idx_en in range(id_ens.shape[0]):
             prob_val_combo = [copy.deepcopy(gp.individuals['prob']['isolated']['validation'][p][int(id_ens[idx_en, p])]) for p in range(num_pop)]
             combined_prob_val = np.zeros_like(prob_val_combo[0])
-            for k in range(len(prob_val_combo)):
-                combined_prob_val += weights[id_ind][k] * prob_val_combo[k]
+            for j in range(prob_val_combo[0].shape[1]):
+                for k in range(len(prob_val_combo)):
+                    combined_prob_val[:, j] += weights[id_ind][j * len(prob_val_combo) + k] * prob_val_combo[k][:, j]
             fit_ens_val[id_ind] =    SparseCategoricalCrossentropy()(y_val, combined_prob_val).numpy()
     if y_test is not None:
         for idx_en in range(id_ens.shape[0]):
             prob_test_combo = [copy.deepcopy(gp.individuals['prob']['isolated']['test'][p][int(id_ens[idx_en, p])]) for p in range(num_pop)]
             combined_prob_ts = np.zeros_like(prob_test_combo[0])
-            for k in range(len(prob_test_combo)):
-                combined_prob_ts += weights[id_ind][k] * prob_test_combo[k]
+            for j in range(prob_test_combo[0].shape[1]):
+                for k in range(len(prob_test_combo)):
+                    combined_prob_ts[:, j] += weights[id_ind][j * len(prob_test_combo) + k] * prob_test_combo[k][:, j]
             fit_ens_ts[id_ind] =    SparseCategoricalCrossentropy()(y_test, combined_prob_ts).numpy()
     
     # Compute ensemble complexity

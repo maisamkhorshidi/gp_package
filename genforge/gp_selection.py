@@ -11,7 +11,7 @@ def gp_selection(gp, id_pop=1):
     minimisation = gp.config['runcontrol']['minimisation']
     lex_pressure = gp.config['selection']['tournament_lex_pressure'][id_pop]
     fitness_isolated = gp.individuals['fitness']['isolated']['train'][:, id_pop]
-    fitness_ensemble = gp.individuals['fitness']['ensemble']
+    fitness_ensemble = gp.individuals['fitness']['ensemble']['train']
     complexity_isolated = gp.individuals['complexity']['isolated'][:, id_pop]
     complexity_ensemble = gp.individuals['complexity']['ensemble']
     

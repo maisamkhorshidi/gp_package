@@ -4,9 +4,10 @@ def gp_selection(gp, id_pop=1):
     """Select an individual from the current population."""
     
     pop_size = gp.config['runcontrol']['pop_size']
+    num_pop = gp.config['runcontrol']['num_pop']
     tournament_size = gp.config['selection']['tournament_size'][id_pop]
     p_pareto = gp.config['selection']['tournament_p_pareto'][id_pop]
-    p_ensemble = gp.config['selection']['p_ensemble'][id_pop] if pop_size == 1 else 0
+    p_ensemble = gp.config['selection']['p_ensemble'][id_pop] if num_pop > 1 else 0
     minimisation = gp.config['runcontrol']['minimisation']
     lex_pressure = gp.config['selection']['tournament_lex_pressure'][id_pop]
     fitness_isolated = gp.individuals['fitness']['isolated']['train'][:, id_pop]

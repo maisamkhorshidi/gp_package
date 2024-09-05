@@ -1,6 +1,6 @@
 # GenForge: Sculpting Solutions with Multi-Population Genetic Programming
 
-![GenForge Logo](path_to_logo.png)  <!-- Optional: Add a logo or banner image -->
+![GenForge Logo](GenForge_Logo.png)  <!-- Optional: Add a logo or banner image -->
 
 ## Overview
 

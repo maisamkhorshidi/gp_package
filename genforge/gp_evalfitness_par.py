@@ -1,67 +1,76 @@
 import numpy as np
-from multiprocessing import Pool, shared_memory
+import multiprocessing
+from concurrent.futures import ProcessPoolExecutor, as_completed
+from .gp_evaluate_ensemble_par import gp_evaluate_ensemble_par
+from .gp_getdepth import gp_getdepth
 from .gp_evaluate_tree import gp_evaluate_tree
 from .gp_getcomplexity import gp_getcomplexity
 from .gp_getnumnodes import gp_getnumnodes
-from .gp_evaluate_softmax import gp_evaluate_softmax
-from .gp_evaluate_ensemble import gp_evaluate_ensemble
-from .gp_getdepth import gp_getdepth
 import copy
-
-def create_shared_memory(arr):
-    shm = shared_memory.SharedMemory(create=True, size=arr.nbytes)
-    shm_arr = np.ndarray(arr.shape, dtype=arr.dtype, buffer=shm.buf)
-    np.copyto(shm_arr, arr)
-    return shm, shm_arr
+import traceback
 
 def evaluate_individual(args):
-    id_pop, id_ind, shm_names, shapes, dtypes, function_map, ind, complexity_measure, num_class,\
-        learning_rate, optimizer_type, initializer, regularization, regularization_rate,\
-        batch_size, epochs, momentum, decay, clipnorm, clipvalue, patience = args
-    # Access the shared memory arrays
-    shm_xtr = shared_memory.SharedMemory(name=shm_names['xtr'])
-    shm_xval = shared_memory.SharedMemory(name=shm_names['xval'])
-    shm_xts = shared_memory.SharedMemory(name=shm_names['xts'])
-    shm_ytr = shared_memory.SharedMemory(name=shm_names['ytr'])
-    shm_yval = shared_memory.SharedMemory(name=shm_names['yval'])
-    shm_yts = shared_memory.SharedMemory(name=shm_names['yts'])
-
-    xtr = np.ndarray(shapes['xtr'], dtype=dtypes['xtr'], buffer=shm_xtr.buf)
-    xval = np.ndarray(shapes['xval'], dtype=dtypes['xval'], buffer=shm_xval.buf)
-    xts = np.ndarray(shapes['xts'], dtype=dtypes['xts'], buffer=shm_xts.buf)
-    ytr = np.ndarray(shapes['ytr'], dtype=dtypes['ytr'], buffer=shm_ytr.buf)
-    yval = np.ndarray(shapes['yval'], dtype=dtypes['yval'], buffer=shm_yval.buf)
-    yts = np.ndarray(shapes['yts'], dtype=dtypes['yts'], buffer=shm_yts.buf)
-
-    # Perform the fitness evaluation
-    gene_out_tr = np.zeros((xtr.shape[0], len(ind)))
-    gene_out_val = np.zeros((xval.shape[0], len(ind)))
-    gene_out_ts = np.zeros((xts.shape[0], len(ind)))
-    num_nodes = np.zeros((len(ind)))
-    depth = np.zeros((len(ind)))
-    complexities_isolated = 0
-
-    for id_gene in range(len(ind)):
-        # Evaluating genes
-        gene_out_tr[:, id_gene] = np.tanh(gp_evaluate_tree(ind[id_gene], xtr, function_map[id_pop]))
-        gene_out_val[:, id_gene] = np.tanh(gp_evaluate_tree(ind[id_gene], xval, function_map[id_pop]))
-        gene_out_ts[:, id_gene] = np.tanh(gp_evaluate_tree(ind[id_gene], xts, function_map[id_pop]))
-        depth[id_gene] = gp_getdepth(ind[id_gene])
-        num_nodes[id_gene] = gp_getnumnodes(ind[id_gene])
-        if complexity_measure == 1:
-            complexities_isolated += gp_getcomplexity(ind[id_gene])
-        else:
-            complexities_isolated += gp_getnumnodes(ind[id_gene])
-
-    args = ytr, yval, yts, num_class, learning_rate[id_pop], optimizer_type, initializer,\
-        regularization, regularization_rate, batch_size, epochs, momentum,\
-            decay, clipnorm, clipvalue, patience,\
-                id_pop, id_ind, gene_out_tr, gene_out_val, gene_out_ts
-
-    # Training the softmax
-    results = gp_evaluate_softmax(args)
-
-    return (id_pop, id_ind, gene_out_tr, gene_out_val, gene_out_ts, depth, num_nodes, complexities_isolated, *results)
+    id_pop, id_ind_range, xtr, xval, xts, ytr, yval, yts, ybin_tr, ybin_val, ybin_ts,\
+        function_map_pop, popgp, complexity_measure,\
+        num_class, optimizer_type_pop, optimizer_param_pop, initializer_pop,\
+        regularization_pop, regularization_rate_pop, batch_size_pop, epochs_pop, random_seed_pop,\
+        buffer_size_pop, shuffle_pop, verbose_pop, patience_pop, use_tensorflow = args
+    
+    function_map = function_map_pop[id_pop]
+    optimizer_type = optimizer_type_pop[id_pop]
+    optimizer_param = optimizer_param_pop[id_pop]
+    initializer = initializer_pop[id_pop]
+    regularization = regularization_pop[id_pop]
+    regularization_rate = regularization_rate_pop[id_pop]
+    batch_size = batch_size_pop[id_pop]
+    epochs = epochs_pop[id_pop]
+    random_seed = random_seed_pop[id_pop]
+    buffer_size = buffer_size_pop[id_pop]
+    shuffle = shuffle_pop[id_pop]
+    verbose = verbose_pop[id_pop]
+    patience = patience_pop[id_pop]
+    
+    results_batch = []
+    for id_ind in id_ind_range:
+        ind = popgp[id_pop][id_ind]
+        # Perform the fitness evaluation
+        gene_out_tr = np.zeros((xtr.shape[0], len(ind)))
+        gene_out_val = np.zeros((xval.shape[0], len(ind)))
+        gene_out_ts = np.zeros((xts.shape[0], len(ind)))
+        num_nodes = np.zeros((len(ind)))
+        depth = np.zeros((len(ind)))
+        complexities_isolated = 0
+    
+        for id_gene in range(len(ind)):
+            # Evaluating genes
+            gene_out_tr[:, id_gene] = np.tanh(gp_evaluate_tree(ind[id_gene], xtr, function_map))
+            gene_out_val[:, id_gene] = np.tanh(gp_evaluate_tree(ind[id_gene], xval, function_map))
+            gene_out_ts[:, id_gene] = np.tanh(gp_evaluate_tree(ind[id_gene], xts, function_map))
+            depth[id_gene] = gp_getdepth(ind[id_gene])
+            num_nodes[id_gene] = gp_getnumnodes(ind[id_gene])
+            if complexity_measure == 1:
+                complexities_isolated += gp_getcomplexity(ind[id_gene])
+            else:
+                complexities_isolated += gp_getnumnodes(ind[id_gene])
+    
+        args_softmax = ytr, yval, yts, ybin_tr, ybin_val, ybin_ts, num_class, \
+            optimizer_type, optimizer_param, initializer,\
+            regularization, regularization_rate, batch_size, epochs,\
+            patience, random_seed, buffer_size, shuffle, verbose, id_pop, id_ind,\
+            gene_out_tr, gene_out_val, gene_out_ts
+    
+        # Training the softmax
+        if not use_tensorflow:
+            from .gp_evaluate_softmax_custom import gp_evaluate_softmax_custom
+            results = gp_evaluate_softmax_custom(args_softmax)
+        elif use_tensorflow:
+            from .gp_evaluate_softmax_tensorflow import gp_evaluate_softmax_tensorflow
+            results = gp_evaluate_softmax_tensorflow(args_softmax)
+    
+        # Assigning the results
+        results_batch.append((id_pop, id_ind, gene_out_tr, gene_out_val, gene_out_ts, depth, num_nodes, complexities_isolated, *results))
+    
+    return results_batch
 
 def gp_evalfitness_par(gp):
     """Evaluate the fitness of individuals (parallel version)."""
@@ -70,18 +79,19 @@ def gp_evalfitness_par(gp):
     pop_size = gp.config['runcontrol']['pop_size']
     function_map = gp.config['nodes']['functions']['function']
     popgp = copy.deepcopy(gp.population)
-    learning_rate = gp.config['softmax']['learning_rate']
     optimizer_type = gp.config['softmax']['optimizer_type']
+    optimizer_param = gp.config['softmax']['optimizer_param']
     initializer = gp.config['softmax']['initializer']
     regularization = gp.config['softmax']['regularization']
     regularization_rate = gp.config['softmax']['regularization_rate']
     batch_size = gp.config['softmax']['batch_size']
     epochs = gp.config['softmax']['epochs']
-    momentum = gp.config['softmax']['momentum']
-    decay = gp.config['softmax']['decay']
-    clipnorm = gp.config['softmax']['clipnorm']
-    clipvalue = gp.config['softmax']['learning_rate']
+    random_seed = gp.config['softmax']['random_seed']
+    buffer_size = gp.config['softmax']['buffer_size']
+    shuffle = gp.config['softmax']['shuffle']
+    verbose = gp.config['softmax']['verbose']
     patience = gp.config['softmax']['patience']
+    use_tensorflow = gp.config['softmax']['use_tensorflow']
     complexity_measure = gp.config['fitness']['complexityMeasure']
     num_class = gp.config['runcontrol']['num_class']
     xtr = gp.userdata['xtrain']
@@ -90,104 +100,115 @@ def gp_evalfitness_par(gp):
     ytr = gp.userdata['ytrain']
     yval = gp.userdata['yval']
     yts = gp.userdata['ytest']
+    ybin_tr = gp.userdata['ybinarytrain']
+    ybin_val = gp.userdata['ybinaryval']
+    ybin_ts = gp.userdata['ybinarytest']
     
-    # Create shared memory for large arrays
-    shm_xtr, xtr_shared = create_shared_memory(xtr)
-    shm_xval, xval_shared = create_shared_memory(xval)
-    shm_xts, xts_shared = create_shared_memory(xts)
-    shm_ytr, ytr_shared = create_shared_memory(ytr)
-    shm_yval, yval_shared = create_shared_memory(yval)
-    shm_yts, yts_shared = create_shared_memory(yts)
+    id_ind_list = []
+    for id_pop in range(num_pop):
+        id_ind_list.append([])
+        for id_ind in range(pop_size):
+            if gp.config['runcontrol']['usecache'] and gp.cache['gene_output']['train'][id_pop][id_ind] is not None:
+                gp.individuals['gene_output']['train'][id_pop][id_ind] =                copy.deepcopy(gp.cache['gene_output']['train'][id_pop][id_ind])
+                gp.individuals['gene_output']['validation'][id_pop][id_ind] =           copy.deepcopy(gp.cache['gene_output']['validation'][id_pop][id_ind])
+                gp.individuals['gene_output']['test'][id_pop][id_ind] =                 copy.deepcopy(gp.cache['gene_output']['test'][id_pop][id_ind])
+                gp.individuals['prob']['isolated']['train'][id_pop][id_ind] =           copy.deepcopy(gp.cache['prob']['isolated']['train'][id_pop][id_ind])
+                gp.individuals['prob']['isolated']['validation'][id_pop][id_ind] =      copy.deepcopy(gp.cache['prob']['isolated']['validation'][id_pop][id_ind])
+                gp.individuals['prob']['isolated']['test'][id_pop][id_ind] =            copy.deepcopy(gp.cache['prob']['isolated']['test'][id_pop][id_ind])
+                gp.individuals['loss']['isolated']['train'][id_ind, id_pop] =           copy.deepcopy(gp.cache['loss']['isolated']['train'][id_pop][id_ind])
+                gp.individuals['loss']['isolated']['validation'][id_ind, id_pop] =      copy.deepcopy(gp.cache['loss']['isolated']['validation'][id_pop][id_ind])
+                gp.individuals['loss']['isolated']['test'][id_ind, id_pop] =            copy.deepcopy(gp.cache['loss']['isolated']['test'][id_pop][id_ind])
+                gp.individuals['yp']['isolated']['train'][id_pop][id_ind] =             copy.deepcopy(gp.cache['yp']['isolated']['train'][id_pop][id_ind])
+                gp.individuals['yp']['isolated']['validation'][id_pop][id_ind] =        copy.deepcopy(gp.cache['yp']['isolated']['validation'][id_pop][id_ind])
+                gp.individuals['yp']['isolated']['test'][id_pop][id_ind] =              copy.deepcopy(gp.cache['yp']['isolated']['test'][id_pop][id_ind])
+                gp.individuals['fitness']['isolated']['train'][id_ind, id_pop] =        copy.deepcopy(gp.cache['fitness']['isolated']['train'][id_pop][id_ind])
+                gp.individuals['fitness']['isolated']['validation'][id_ind, id_pop] =   copy.deepcopy(gp.cache['fitness']['isolated']['validation'][id_pop][id_ind])
+                gp.individuals['fitness']['isolated']['test'][id_ind, id_pop] =         copy.deepcopy(gp.cache['fitness']['isolated']['test'][id_pop][id_ind])
+                gp.individuals['depth']['isolated'][id_pop][id_ind] =                   copy.deepcopy(gp.cache['depth']['isolated'][id_pop][id_ind])
+                gp.individuals['num_nodes']['isolated'][id_pop][id_ind] =               copy.deepcopy(gp.cache['num_nodes']['isolated'][id_pop][id_ind])
+                gp.individuals['weight_genes'][id_pop][id_ind] =                        copy.deepcopy(gp.cache['weight_genes'][id_pop][id_ind])
+                gp.individuals['complexity']['isolated'][id_ind, id_pop] =              copy.deepcopy(gp.cache['complexity']['isolated'][id_pop][id_ind])
+            else:
+                id_ind_list[id_pop].append(id_ind)
+                
+    # Create a ProcessPoolExecutor for multi-core processing
+    with ProcessPoolExecutor(max_workers=gp.config['runcontrol']['parallel']['n_jobs']) as executor:
+        futures = []
+        for id_pop in range(num_pop):
+            batch_size_parallel = gp.config['runcontrol']['parallel']['batch_size']  # Processing multiple individuals in a batch to reduce overhead
+            for i in range(0, len(id_ind_list[id_pop]), batch_size_parallel):
+                id_ind_list_np = np.array(id_ind_list[id_pop])
+                id_ind_range = list(id_ind_list_np[list(range(i, min(i + batch_size_parallel, len(id_ind_list_np))))])  # Batch individuals
+                args = (id_pop, id_ind_range, xtr, xval, xts, ytr, yval, yts, \
+                ybin_tr, ybin_val, ybin_ts, function_map, popgp, complexity_measure,\
+                num_class, optimizer_type, optimizer_param, initializer, \
+                regularization, regularization_rate, batch_size, epochs, random_seed,\
+                buffer_size, shuffle, verbose, patience, use_tensorflow)
+                
+                futures.append(executor.submit(evaluate_individual, args))
+    
+        # Collect results dynamically as they complete
+        for future in as_completed(futures):
+            try:
+                results_batch = future.result()  # Block until each future is complete
+                # Handle the results
+                for result in results_batch:
+                    id_pop, id_ind, gene_out_tr, gene_out_val, gene_out_ts, depth, num_nodes, complexities_isolated, *fitness_results = result
+                    # Assign the results back to the gp object
+                    gp.individuals['gene_output']['train'][id_pop][id_ind] =                copy.deepcopy(gene_out_tr)
+                    gp.individuals['gene_output']['validation'][id_pop][id_ind] =           copy.deepcopy(gene_out_val)
+                    gp.individuals['gene_output']['test'][id_pop][id_ind] =                 copy.deepcopy(gene_out_ts)
+                    gp.individuals['depth']['isolated'][id_pop][id_ind] =                   copy.deepcopy(depth)
+                    gp.individuals['num_nodes']['isolated'][id_pop][id_ind] =               copy.deepcopy(num_nodes)
+                    gp.individuals['complexity']['isolated'][id_ind, id_pop] =              copy.deepcopy(complexities_isolated)
 
-    # Shared memory names, shapes, and dtypes
-    shm_names = {
-        'xtr': shm_xtr.name,
-        'xval': shm_xval.name,
-        'xts': shm_xts.name,
-        'ytr': shm_ytr.name,
-        'yval': shm_yval.name,
-        'yts': shm_yts.name
-    }
-    shapes = {
-        'xtr': xtr_shared.shape,
-        'xval': xval_shared.shape,
-        'xts': xts_shared.shape,
-        'ytr': ytr_shared.shape,
-        'yval': yval_shared.shape,
-        'yts': yts_shared.shape
-    }
-    dtypes = {
-        'xtr': xtr_shared.dtype,
-        'xval': xval_shared.dtype,
-        'xts': xts_shared.dtype,
-        'ytr': ytr_shared.dtype,
-        'yval': yval_shared.dtype,
-        'yts': yts_shared.dtype
-    }
+                    # Assign fitness results (prob_tr, prob_val, prob_ts, loss_tr, loss_val, loss_ts, yp_tr, yp_val, yp_ts, weight_genes)
+                    gp.individuals['prob']['isolated']['train'][id_pop][id_ind] =           copy.deepcopy(fitness_results[0])
+                    gp.individuals['prob']['isolated']['validation'][id_pop][id_ind] =      copy.deepcopy(fitness_results[1])
+                    gp.individuals['prob']['isolated']['test'][id_pop][id_ind] =            copy.deepcopy(fitness_results[2])
+                    gp.individuals['loss']['isolated']['train'][id_ind, id_pop] =           copy.deepcopy(fitness_results[3])
+                    gp.individuals['loss']['isolated']['validation'][id_ind, id_pop] =      copy.deepcopy(fitness_results[4])
+                    gp.individuals['loss']['isolated']['test'][id_ind, id_pop] =            copy.deepcopy(fitness_results[5])
+                    gp.individuals['fitness']['isolated']['train'][id_ind, id_pop] =        copy.deepcopy(fitness_results[3])
+                    gp.individuals['fitness']['isolated']['validation'][id_ind, id_pop] =   copy.deepcopy(fitness_results[4])
+                    gp.individuals['fitness']['isolated']['test'][id_ind, id_pop] =         copy.deepcopy(fitness_results[5])
+                    gp.individuals['yp']['isolated']['train'][id_pop][id_ind] =             copy.deepcopy(fitness_results[6])
+                    gp.individuals['yp']['isolated']['validation'][id_pop][id_ind] =        copy.deepcopy(fitness_results[7])
+                    gp.individuals['yp']['isolated']['test'][id_pop][id_ind] =              copy.deepcopy(fitness_results[8])
+                    gp.individuals['weight_genes'][id_pop][id_ind] =                        copy.deepcopy(fitness_results[9])
+            except Exception as exc:
+                print(f"Generated an exception: {exc}")
+                traceback.print_exc()  # This will print the full stack trace
 
-    pool = Pool(gp.config['runcontrol']['parallel']['n_jobs'])
-    args = [(id_pop, id_ind, shm_names, shapes, dtypes, function_map, popgp[id_pop][id_ind], complexity_measure, num_class,\
-        learning_rate[id_pop], optimizer_type[id_pop], initializer[id_pop], regularization[id_pop], regularization_rate[id_pop],\
-        batch_size[id_pop], epochs[id_pop], momentum[id_pop], decay[id_pop], clipnorm[id_pop], clipvalue[id_pop], patience[id_pop]) 
-            for id_pop in range(num_pop) 
-            for id_ind in range(pop_size)]
-    results = pool.starmap(evaluate_individual, args)
+    # Evaluating the Ensembles
+    results_en = gp_evaluate_ensemble_par(gp)
 
-    pool.close()
-    pool.join()
-
-    # Handle the results
-    for result in results:
-        id_pop, id_ind, gene_out_tr, gene_out_val, gene_out_ts, depth, num_nodes, complexities_isolated, *fitness_results = result
-        # Assign the results back to the gp object
-        gp.individuals['gene_output']['train'][id_pop][id_ind] = copy.deepcopy(gene_out_tr)
-        gp.individuals['gene_output']['validation'][id_pop][id_ind] = copy.deepcopy(gene_out_val)
-        gp.individuals['gene_output']['test'][id_pop][id_ind] = copy.deepcopy(gene_out_ts)
-        gp.individuals['depth']['isolated'][id_pop][id_ind] = copy.deepcopy(depth)
-        gp.individuals['num_nodes']['isolated'][id_pop][id_ind] = copy.deepcopy(num_nodes)
-        gp.individuals['complexity']['isolated'][id_ind, id_pop] = copy.deepcopy(complexities_isolated)
-
-        # Assign fitness results (prob_tr, prob_val, prob_ts, loss_tr, loss_val, loss_ts, yp_tr, yp_val, yp_ts, weight_genes)
-        gp.individuals['prob']['isolated']['train'][id_pop][id_ind] = copy.deepcopy(fitness_results[0])
-        gp.individuals['prob']['isolated']['validation'][id_pop][id_ind] = copy.deepcopy(fitness_results[1])
-        gp.individuals['prob']['isolated']['test'][id_pop][id_ind] = copy.deepcopy(fitness_results[2])
-        gp.individuals['loss']['isolated']['train'][id_ind, id_pop] = copy.deepcopy(fitness_results[3])
-        gp.individuals['loss']['isolated']['validation'][id_ind, id_pop] = copy.deepcopy(fitness_results[4])
-        gp.individuals['loss']['isolated']['test'][id_ind, id_pop] = copy.deepcopy(fitness_results[5])
-        gp.individuals['fitness']['isolated']['train'][id_ind, id_pop] = copy.deepcopy(fitness_results[3])
-        gp.individuals['fitness']['isolated']['validation'][id_ind, id_pop] = copy.deepcopy(fitness_results[4])
-        gp.individuals['fitness']['isolated']['test'][id_ind, id_pop] = copy.deepcopy(fitness_results[5])
-        gp.individuals['yp']['isolated']['train'][id_pop][id_ind] = copy.deepcopy(fitness_results[6])
-        gp.individuals['yp']['isolated']['validation'][id_pop][id_ind] = copy.deepcopy(fitness_results[7])
-        gp.individuals['yp']['isolated']['test'][id_pop][id_ind] = copy.deepcopy(fitness_results[8])
-        gp.individuals['weight_genes'][id_pop][id_ind] = copy.deepcopy(fitness_results[9])
-
-    if num_pop > 1:
-        # Evaluating the Ensembles
-        results_en = gp_evaluate_ensemble(gp)
-    else:
-        results_en = [None, 
-                      None,
-                      copy.deepcopy(gp.individuals['complexity']['isolated']),
-                      copy.deepcopy(gp.individuals['prob']['isolated']['train']),
-                      copy.deepcopy(gp.individuals['prob']['isolated']['validation']),
-                      copy.deepcopy(gp.individuals['prob']['isolated']['test']),
-                      copy.deepcopy(gp.individuals['fitness']['isolated']['train']),
-                      copy.deepcopy(gp.individuals['fitness']['isolated']['validation']),
-                      copy.deepcopy(gp.individuals['fitness']['isolated']['test']),
-                      copy.deepcopy(gp.individuals['loss']['isolated']['train']),
-                      copy.deepcopy(gp.individuals['loss']['isolated']['validation']),
-                      copy.deepcopy(gp.individuals['loss']['isolated']['test']),
-                      copy.deepcopy(gp.individuals['yp']['isolated']['train']),
-                      copy.deepcopy(gp.individuals['yp']['isolated']['validation']),
-                      copy.deepcopy(gp.individuals['yp']['isolated']['test']),
-                      copy.deepcopy(gp.individuals['depth']['isolated']),
-                      copy.deepcopy(gp.individuals['num_nodes']['isolated']),
-                      np.arange(0, pop_size),
-                      copy.deepcopy(gp.individuals['fitness']['isolated']['train']),
-                      copy.deepcopy(gp.individuals['fitness']['isolated']['validation']),
-                      copy.deepcopy(gp.individuals['fitness']['isolated']['test']),
-                      ]
+    # if num_pop > 1:
+    #     # Evaluating the Ensembles
+    #     results_en = gp_evaluate_ensemble(gp)
+    # else:
+    #     results_en = [None, 
+    #                   None,
+    #                   copy.deepcopy(gp.individuals['complexity']['isolated']),
+    #                   copy.deepcopy(gp.individuals['prob']['isolated']['train']),
+    #                   copy.deepcopy(gp.individuals['prob']['isolated']['validation']),
+    #                   copy.deepcopy(gp.individuals['prob']['isolated']['test']),
+    #                   copy.deepcopy(gp.individuals['fitness']['isolated']['train']),
+    #                   copy.deepcopy(gp.individuals['fitness']['isolated']['validation']),
+    #                   copy.deepcopy(gp.individuals['fitness']['isolated']['test']),
+    #                   copy.deepcopy(gp.individuals['loss']['isolated']['train']),
+    #                   copy.deepcopy(gp.individuals['loss']['isolated']['validation']),
+    #                   copy.deepcopy(gp.individuals['loss']['isolated']['test']),
+    #                   copy.deepcopy(gp.individuals['yp']['isolated']['train']),
+    #                   copy.deepcopy(gp.individuals['yp']['isolated']['validation']),
+    #                   copy.deepcopy(gp.individuals['yp']['isolated']['test']),
+    #                   copy.deepcopy(gp.individuals['depth']['isolated']),
+    #                   copy.deepcopy(gp.individuals['num_nodes']['isolated']),
+    #                   np.arange(0, pop_size),
+    #                   copy.deepcopy(gp.individuals['fitness']['isolated']['train']),
+    #                   copy.deepcopy(gp.individuals['fitness']['isolated']['validation']),
+    #                   copy.deepcopy(gp.individuals['fitness']['isolated']['test']),
+    #                   ]
 
     # Assigning the results
     en_weight =         copy.deepcopy(results_en[0])
@@ -298,22 +319,4 @@ def gp_evalfitness_par(gp):
                 gp.track['rank']['fitness']['isolated']['test'][gen][id_pop] = np.argsort(-gp.individuals['fitness']['isolated']['test'][:, id_pop])
 
 
-
-    # Cleanup shared memory
-    shm_xtr.close()
-    shm_xtr.unlink()
-
-    shm_xval.close()
-    shm_xval.unlink()
-
-    shm_xts.close()
-    shm_xts.unlink()
-
-    shm_ytr.close()
-    shm_ytr.unlink()
-
-    shm_yval.close()
-    shm_yval.unlink()
-
-    shm_yts.close()
-    shm_yts.unlink()
+    

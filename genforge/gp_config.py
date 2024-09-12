@@ -1,7 +1,7 @@
 import numpy as np
-import os
 import importlib
 import inspect
+import copy
 
 def import_functions(function_name):
     module_name = function_name.lower()  # Assuming module name matches function name
@@ -21,7 +21,7 @@ def import_functions(function_name):
 
 def binarymapping(y, num_classes):
     """Convert y to binary mapping."""
-    y_binary = np.zeros((len(y), num_classes))
+    y_binary = np.zeros((len(y), num_classes), dtype = int)
     for i, val in enumerate(y):
         y_binary[i, val] = 1
     return y_binary
@@ -48,6 +48,7 @@ def gp_config(gp):
     if gp.parameters['userdata_xval'] is None:
         xval1 = None
         yval = None
+        ybin_val = None
     elif not isinstance(gp.parameters['userdata_xval'],np.ndarray):
         raise ValueError("Validation input data should be numpy array. Set userdata_xval ...")
     elif gp.parameters['userdata_xval'].shape[1] != gp.parameters['userdata_xtrain'].shape[1]:
@@ -62,6 +63,7 @@ def gp_config(gp):
     if gp.parameters['userdata_xtest'] is None:
         xts1 = None
         yts = None
+        ybin_ts = None
     elif not isinstance(gp.parameters['userdata_xtest'],np.ndarray):
         raise ValueError("Testing input data should be numpy array. Set userdata_xtest ...")
     elif gp.parameters['userdata_xtest'].shape[1] != gp.parameters['userdata_xtrain'].shape[1]:
@@ -71,6 +73,19 @@ def gp_config(gp):
     else:
         xts1 = gp.parameters['userdata_xtest']
         yts = gp.parameters['userdata_ytest']
+    
+    num_class = len(np.unique(np.concatenate((ytr, yval, yts))))
+    
+    ybin_tr = binarymapping(ytr, num_class)
+    if yval is not None:
+        ybin_val = binarymapping(yval, num_class)
+    else:
+        ybin_val = None
+    
+    if yts is not None:
+        ybin_ts = binarymapping(yts, num_class)
+    else:
+        ybin_ts = None
     
     ## Setting the parameters
     # Population size
@@ -101,96 +116,216 @@ def gp_config(gp):
     ## Softmax parameters
     gp.config['softmax'] = {}
     
-    if len(gp.parameters['softmax_learning_rate']) == 1:
-        gp.config['softmax']['learning_rate'] = gp.parameters['softmax_learning_rate'] * num_pop
-    elif len(gp.parameters['softmax_learning_rate']) != num_pop:
-        raise ValueError("The length of softmax_learning_rate should be as same as the runcontrol_num_pop. Set selection_tournament_size ...")
-    else:
-        gp.config['softmax']['learning_rate'] = gp.parameters['softmax_learning_rate']
-    
     if len(gp.parameters['softmax_optimizer_type']) == 1:
         gp.config['softmax']['optimizer_type'] = gp.parameters['softmax_optimizer_type'] * num_pop
     elif len(gp.parameters['softmax_optimizer_type']) != num_pop:
-        raise ValueError("The length of softmax_optimizer_type should be as same as the runcontrol_num_pop. Set selection_tournament_size ...")
+        raise ValueError("The length of softmax_optimizer_type should be as same as the runcontrol_num_pop. Set softmax_optimizer_type ...")
     else:
         gp.config['softmax']['optimizer_type'] = gp.parameters['softmax_optimizer_type']
         
     if len(gp.parameters['softmax_initializer']) == 1:
         gp.config['softmax']['initializer'] = gp.parameters['softmax_initializer'] * num_pop
     elif len(gp.parameters['softmax_initializer']) != num_pop:
-        raise ValueError("The length of softmax_initializer should be as same as the runcontrol_num_pop. Set selection_tournament_size ...")
+        raise ValueError("The length of softmax_initializer should be as same as the runcontrol_num_pop. Set softmax_initializer ...")
     else:
         gp.config['softmax']['initializer'] = gp.parameters['softmax_initializer']
         
     if len(gp.parameters['softmax_regularization']) == 1:
         gp.config['softmax']['regularization'] = gp.parameters['softmax_regularization'] * num_pop
     elif len(gp.parameters['softmax_regularization']) != num_pop:
-        raise ValueError("The length of softmax_regularization should be as same as the runcontrol_num_pop. Set selection_tournament_size ...")
+        raise ValueError("The length of softmax_regularization should be as same as the runcontrol_num_pop. Set softmax_regularization ...")
     else:
         gp.config['softmax']['regularization'] = gp.parameters['softmax_regularization']
         
     if len(gp.parameters['softmax_regularization_rate']) == 1:
         gp.config['softmax']['regularization_rate'] = gp.parameters['softmax_regularization_rate'] * num_pop
     elif len(gp.parameters['softmax_regularization_rate']) != num_pop:
-        raise ValueError("The length of softmax_regularization_rate should be as same as the runcontrol_num_pop. Set selection_tournament_size ...")
+        raise ValueError("The length of softmax_regularization_rate should be as same as the runcontrol_num_pop. Set softmax_regularization_rate ...")
     else:
         gp.config['softmax']['regularization_rate'] = gp.parameters['softmax_regularization_rate']
         
     if len(gp.parameters['softmax_batch_size']) == 1:
         gp.config['softmax']['batch_size'] = gp.parameters['softmax_batch_size'] * num_pop
     elif len(gp.parameters['softmax_batch_size']) != num_pop:
-        raise ValueError("The length of softmax_batch_size should be as same as the runcontrol_num_pop. Set selection_tournament_size ...")
+        raise ValueError("The length of softmax_batch_size should be as same as the runcontrol_num_pop. Set softmax_batch_size ...")
     else:
         gp.config['softmax']['batch_size'] = gp.parameters['softmax_batch_size']
         
     if len(gp.parameters['softmax_epochs']) == 1:
         gp.config['softmax']['epochs'] = gp.parameters['softmax_epochs'] * num_pop
     elif len(gp.parameters['softmax_epochs']) != num_pop:
-        raise ValueError("The length of softmax_epochs should be as same as the runcontrol_num_pop. Set selection_tournament_size ...")
+        raise ValueError("The length of softmax_epochs should be as same as the runcontrol_num_pop. Set softmax_epochs ...")
     else:
         gp.config['softmax']['epochs'] = gp.parameters['softmax_epochs']
-        
-    if len(gp.parameters['softmax_momentum']) == 1:
-        gp.config['softmax']['momentum'] = gp.parameters['softmax_momentum'] * num_pop
-    elif len(gp.parameters['softmax_momentum']) != num_pop:
-        raise ValueError("The length of softmax_momentum should be as same as the runcontrol_num_pop. Set selection_tournament_size ...")
-    else:
-        gp.config['softmax']['momentum'] = gp.parameters['softmax_momentum']
-        
-    if len(gp.parameters['softmax_decay']) == 1:
-        gp.config['softmax']['decay'] = gp.parameters['softmax_decay'] * num_pop
-    elif len(gp.parameters['softmax_decay']) != num_pop:
-        raise ValueError("The length of softmax_decay should be as same as the runcontrol_num_pop. Set selection_tournament_size ...")
-    else:
-        gp.config['softmax']['decay'] = gp.parameters['softmax_decay']
-    
-    if len(gp.parameters['softmax_clipnorm']) == 1:
-        gp.config['softmax']['clipnorm'] = gp.parameters['softmax_clipnorm'] * num_pop
-    elif len(gp.parameters['softmax_clipnorm']) != num_pop:
-        raise ValueError("The length of softmax_clipnorm should be as same as the runcontrol_num_pop. Set selection_tournament_size ...")
-    else:
-        gp.config['softmax']['clipnorm'] = gp.parameters['softmax_clipnorm']
-    
-    if len(gp.parameters['softmax_clipvalue']) == 1:
-        gp.config['softmax']['clipvalue'] = gp.parameters['softmax_clipvalue'] * num_pop
-    elif len(gp.parameters['softmax_clipvalue']) != num_pop:
-        raise ValueError("The length of softmax_clipvalue should be as same as the runcontrol_num_pop. Set selection_tournament_size ...")
-    else:
-        gp.config['softmax']['clipvalue'] = gp.parameters['softmax_clipvalue']
     
     if len(gp.parameters['softmax_patience']) == 1:
         gp.config['softmax']['patience'] = gp.parameters['softmax_patience'] * num_pop
     elif len(gp.parameters['softmax_patience']) != num_pop:
-        raise ValueError("The length of softmax_patience should be as same as the runcontrol_num_pop. Set selection_tournament_size ...")
+        raise ValueError("The length of softmax_patience should be as same as the runcontrol_num_pop. Set softmax_patience ...")
     else:
         gp.config['softmax']['patience'] = gp.parameters['softmax_patience']
+        
+    if len(gp.parameters['softmax_random_seed']) == 1:
+        gp.config['softmax']['random_seed'] = gp.parameters['softmax_random_seed'] * num_pop
+    elif len(gp.parameters['softmax_random_seed']) != num_pop:
+        raise ValueError("The length of softmax_random_seed should be as same as the runcontrol_num_pop. Set softmax_random_seed ...")
+    else:
+        gp.config['softmax']['random_seed'] = gp.parameters['softmax_random_seed']
     
+    if len(gp.parameters['softmax_buffer_size']) == 1:
+        gp.config['softmax']['buffer_size'] = gp.parameters['softmax_buffer_size'] * num_pop
+    elif len(gp.parameters['softmax_buffer_size']) != num_pop:
+        raise ValueError("The length of softmax_buffer_size should be as same as the runcontrol_num_pop. Set softmax_buffer_size ...")
+    else:
+        gp.config['softmax']['buffer_size'] = gp.parameters['softmax_buffer_size']
+    
+    if len(gp.parameters['softmax_shuffle']) == 1:
+        gp.config['softmax']['shuffle'] = gp.parameters['softmax_shuffle'] * num_pop
+    elif len(gp.parameters['softmax_shuffle']) != num_pop:
+        raise ValueError("The length of softmax_shuffle should be as same as the runcontrol_num_pop. Set softmax_shuffle ...")
+    else:
+        gp.config['softmax']['shuffle'] = gp.parameters['softmax_shuffle']
+    
+    if len(gp.parameters['softmax_verbose']) == 1:
+        gp.config['softmax']['verbose'] = gp.parameters['softmax_verbose'] * num_pop
+    elif len(gp.parameters['softmax_verbose']) != num_pop:
+        raise ValueError("The length of softmax_verbose should be as same as the runcontrol_num_pop. Set softmax_verbose ...")
+    else:
+        gp.config['softmax']['verbose'] = gp.parameters['softmax_verbose']
+    
+    if len(gp.parameters['softmax_optimizer_param']) == 1:
+        gp.config['softmax']['optimizer_param'] = gp.parameters['softmax_optimizer_param'] * num_pop
+    elif len(gp.parameters['softmax_optimizer_param']) != num_pop:
+        raise ValueError("The length of softmax_optimzer_param should be as same as the runcontrol_num_pop. Set softmax_optimzer_param ...")
+    else:
+        gp.config['softmax']['optimizer_param'] = gp.parameters['softmax_optimizer_param']
+        
+    optim_param = copy.deepcopy(gp.config['softmax']['optimizer_param'])
+    optimizer_type = gp.config['softmax']['optimizer_type']
+    for id_pop in range(num_pop):
+        optim_par = {}
+        if optimizer_type[id_pop] == 'sgd':
+            # Stochastic Gradient Descent
+            optim_par['learning_rate'] = optim_param[id_pop].get('learning_rate', 0.01)
+            optim_par['momentum'] = optim_param[id_pop].get('momentum', 0.0)  # Default is 0 if not provided
+            optim_par['nesterov'] = optim_param[id_pop].get('nesterov', False)  # Use Nesterov momentum if True
+            optim_par['weight_decay'] = optim_param[id_pop].get('weight_decay', 0.0)  # L2 regularization
+            optim_par['dampening'] = optim_param[id_pop].get('dampening', 0.0)  # Dampening for momentum
+            optim_par['decay'] = optim_param[id_pop].get('decay', 0.0)  # Learning rate decay
+            optim_par['clipnorm'] = optim_param[id_pop].get('clipnorm', None)  # Global norm clipping
+            optim_par['clipvalue'] = optim_param[id_pop].get('clipvalue', None)  # Value clipping
+            #####################################
+        elif optimizer_type[id_pop] == 'adam':
+            # Adam
+            optim_par['learning_rate'] = optim_param[id_pop].get('learning_rate', 0.001)
+            optim_par['beta1'] = optim_param[id_pop].get('beta1', 0.9)
+            optim_par['beta2'] = optim_param[id_pop].get('beta2', 0.999)
+            optim_par['epsilon'] = optim_param[id_pop].get('epsilon', 1e-7)
+            optim_par['amsgrad'] = optim_param[id_pop].get('amsgrad', False) 
+            optim_par['weight_decay'] = optim_param[id_pop].get('weight_decay', 0.0)
+            optim_par['clipnorm'] = optim_param[id_pop].get('clipnorm', None)
+            optim_par['clipvalue'] = optim_param[id_pop].get('clipvalue', None)
+            #######################################
+        elif optimizer_type[id_pop] == 'rmsprop':
+            # RMSprop
+            optim_par['learning_rate'] = optim_param[id_pop].get('learning_rate', 0.001)
+            optim_par['rho'] = optim_param[id_pop].get('rho', 0.9)
+            optim_par['momentum'] = optim_param[id_pop].get('momentum', 0)
+            optim_par['epsilon'] = optim_param[id_pop].get('epsilon', 1e-7)
+            optim_par['centered'] = optim_param[id_pop].get('centered', False) 
+            optim_par['weight_decay'] = optim_param[id_pop].get('weight_decay', 0.0)
+            optim_par['clipnorm'] = optim_param[id_pop].get('clipnorm', None)
+            optim_par['clipvalue'] = optim_param[id_pop].get('clipvalue', None)
+            #######################################
+        elif optimizer_type[id_pop] == 'adamw':
+            # adamW
+            optim_par['learning_rate'] = optim_param[id_pop].get('learning_rate', 0.001)
+            optim_par['beta1'] = optim_param[id_pop].get('beta1', 0.9)
+            optim_par['beta2'] = optim_param[id_pop].get('beta2', 0.999)
+            optim_par['epsilon'] = optim_param[id_pop].get('epsilon', 1e-8)
+            optim_par['weight_decay'] = optim_param[id_pop].get('weight_decay', 0.01)
+            optim_par['clipnorm'] = optim_param[id_pop].get('clipnorm', None)
+            optim_par['clipvalue'] = optim_param[id_pop].get('clipvalue', None)
+            #######################################
+        elif optimizer_type[id_pop] == 'nadam':
+            # Nesterov-accelerated Adaptive Moment Estimation
+            optim_par['learning_rate'] = optim_param[id_pop].get('learning_rate', 0.002)
+            optim_par['beta1'] = optim_param[id_pop].get('beta1', 0.9)
+            optim_par['beta2'] = optim_param[id_pop].get('beta2', 0.999)
+            optim_par['epsilon'] = optim_param[id_pop].get('epsilon', 1e-7)
+            optim_par['weight_decay'] = optim_param[id_pop].get('weight_decay', 0.0)
+            optim_par['clipnorm'] = optim_param[id_pop].get('clipnorm', None)
+            optim_par['clipvalue'] = optim_param[id_pop].get('clipvalue', None)
+            #######################################
+        elif optimizer_type[id_pop] == 'adagrad':
+            # Adaptive Gradient Algorithm
+            optim_par['learning_rate'] = optim_param[id_pop].get('learning_rate', 0.01)
+            optim_par['epsilon'] = optim_param[id_pop].get('epsilon', 1e-7)
+            optim_par['initial_accumulator_value'] = optim_param[id_pop].get('initial_accumulator_value', 0.1) 
+            optim_par['weight_decay'] = optim_param[id_pop].get('weight_decay', 0.0)
+            optim_par['clipnorm'] = optim_param[id_pop].get('clipnorm', None)
+            optim_par['clipvalue'] = optim_param[id_pop].get('clipvalue', None)
+            #######################################
+        elif optimizer_type[id_pop] == 'adadelta':
+            # Adadelta
+            optim_par['learning_rate'] = optim_param[id_pop].get('learning_rate', 1)
+            optim_par['rho'] = optim_param[id_pop].get('rho', 0.95)
+            optim_par['epsilon'] = optim_param[id_pop].get('epsilon', 1e-7)
+            optim_par['weight_decay'] = optim_param[id_pop].get('weight_decay', 0.0)
+            optim_par['clipnorm'] = optim_param[id_pop].get('clipnorm', None)
+            optim_par['clipvalue'] = optim_param[id_pop].get('clipvalue', None)
+            #######################################
+        elif optimizer_type[id_pop] == 'ftrl':
+            # Follow-the-Regularized-Leader
+            optim_par['learning_rate'] = optim_param[id_pop].get('learning_rate', 0.001)
+            optim_par['learning_rate_power'] = optim_param[id_pop].get('learning_rate_power', -0.5)
+            optim_par['initial_accumulator_value'] = optim_param[id_pop].get('initial_accumulator_value', 0.1)
+            optim_par['l1_regularization_strength'] = optim_param[id_pop].get('l1_regularization_strength', 0)
+            optim_par['l2_regularization_strength'] = optim_param[id_pop].get('l2_regularization_strength', 0)
+            optim_par['weight_decay'] = optim_param[id_pop].get('weight_decay', 0.0)
+            optim_par['clipnorm'] = optim_param[id_pop].get('clipnorm', None)
+            optim_par['clipvalue'] = optim_param[id_pop].get('clipvalue', None)
+            #######################################
+        elif optimizer_type[id_pop] == 'adamax':
+            # AdaMax
+            optim_par['learning_rate'] = optim_param[id_pop].get('learning_rate', 0.002)
+            optim_par['beta1'] = optim_param[id_pop].get('beta1', 0.9)
+            optim_par['beta2'] = optim_param[id_pop].get('beta2', 0.999)
+            optim_par['epsilon'] = optim_param[id_pop].get('epsilon', 1e-7)
+            optim_par['weight_decay'] = optim_param[id_pop].get('weight_decay', 0.0)
+            optim_par['clipnorm'] = optim_param[id_pop].get('clipnorm', None)
+            optim_par['clipvalue'] = optim_param[id_pop].get('clipvalue', None)
+            #######################################
+        elif optimizer_type[id_pop] == 'sgdnm':
+            # SGD with Nesterov Momentum
+            optim_par['learning_rate'] = optim_param[id_pop].get('learning_rate', 0.01)
+            optim_par['momentum'] = optim_param[id_pop].get('momentum', 0.9)
+            optim_par['nesterov'] = optim_param[id_pop].get('nesterov', True)
+            optim_par['weight_decay'] = optim_param[id_pop].get('weight_decay', 0.0)
+            optim_par['dampening'] = optim_param[id_pop].get('dampening', 0.0)
+            optim_par['decay'] = optim_param[id_pop].get('decay', 0.0)
+            optim_par['clipnorm'] = optim_param[id_pop].get('clipnorm', None)
+            optim_par['clipvalue'] = optim_param[id_pop].get('clipvalue', None)
+            #######################################
+        elif optimizer_type[id_pop] == 'lbgfs':
+            # Limited-memory Broyden–Fletcher–Goldfarb–Shanno
+            optim_par['learning_rate'] = optim_param[id_pop].get('learning_rate', 1)
+            optim_par['max_iter'] = optim_param[id_pop].get('max_iter', 20)
+            optim_par['max_eval'] = optim_param[id_pop].get('max_eval', None)
+            optim_par['tolerance_grad'] = optim_param[id_pop].get('tolerance_grad', 1e-5)
+            optim_par['tolerance_change'] = optim_param[id_pop].get('tolerance_change', 1e-9)
+            optim_par['history_size'] = optim_param[id_pop].get('history_size', 100)
+            optim_par['line_search_fn'] = optim_param[id_pop].get('line_search_fn', 'strong_wolfe')
+            #######################################
+        gp.config['softmax']['optimizer_param'][id_pop] = optim_par
+        
+        gp.config['softmax']['use_tensorflow'] = gp.parameters['softmax_use_tensorflow']
     
     ## Runcontrol parameters
     gp.config['runcontrol'] = {
         'num_pop': num_pop,
         'pop_size': gp.parameters['runcontrol_pop_size'],
-        'num_class': len(np.unique(np.concatenate((ytr, yval, yts)))),
+        'num_class': num_class,
         'num_generations': gp.parameters['runcontrol_generations'],
         'stallgen': gp.parameters['runcontrol_stallgen'],
         'tolfit': gp.parameters['runcontrol_tolfit'],
@@ -223,6 +358,7 @@ def gp_config(gp):
     gp.config['runcontrol']['parallel'] = {
         'useparallel': gp.parameters['runcontrol_useparallel'],
         'n_jobs': gp.parameters['runcontrol_n_jobs'],
+        'batch_size': gp.parameters['runcontrol_batch_size']
         }
     
     ## Selection Parameters
@@ -457,10 +593,9 @@ def gp_config(gp):
     gp.userdata['yval'] = yval.copy()
     gp.userdata['xtest'] = xts.copy()
     gp.userdata['ytest'] = yts.copy()
-    gp.userdata['ybinarytrain'] = binarymapping(ytr, gp.userdata['num_class'])
-    gp.userdata['ybinaryval'] = binarymapping(yval, gp.userdata['num_class'])
-    gp.userdata['ybinarytest'] = binarymapping(yts, gp.userdata['num_class'])
-    gp.userdata['PlotName'] = gp.userdata['name'] + '.png'
+    gp.userdata['ybinarytrain'] = ybin_tr.copy()
+    gp.userdata['ybinaryval'] = ybin_val.copy()
+    gp.userdata['ybinarytest'] = ybin_ts.copy()
     
     
 

@@ -154,7 +154,7 @@ def gp_plotrankall(gp):
             ax.tick_params(axis='x', which='both', bottom=True, top=False, labelbottom=True)
 
         # Update the plot and process the event loop
-        plt.show(block=False)
+        # plt.show(block=False)
         fig.canvas.draw()
         fig.canvas.flush_events()
 
@@ -162,4 +162,5 @@ def gp_plotrankall(gp):
         for fmt in gp.config['runcontrol']['plot']['format']:
             fig.savefig(gp.config['runcontrol']['plot']['folder'] + f"{gp.runname}_RankallVsGeneration.{fmt}", dpi=300, format=fmt)
 
-        plt.pause(0.1)
+        # plt.pause(0.1)
+        plt.close(fig)

@@ -2,7 +2,8 @@ import numpy as np
 from .gp_evaluate_tree import gp_evaluate_tree
 from .gp_getcomplexity import gp_getcomplexity
 from .gp_getnumnodes import gp_getnumnodes
-from .gp_evaluate_ensemble_ord import gp_evaluate_ensemble_ord
+from .gp_evaluate_softmax import gp_evaluate_softmax
+from .gp_evaluate_ensemble import gp_evaluate_ensemble
 from .gp_getdepth import gp_getdepth
 import copy
 #from .utils import tree2evalstr, getcomplexity, getnumnodes
@@ -10,20 +11,21 @@ import copy
 def gp_evalfitness_ord(gp):
     """Evaluate the fitness of individuals (ordinary version)."""
     gen = gp.state['generation']
+    # num_class = gp.userdata['num_class']
     num_pop = gp.config['runcontrol']['num_pop']
     pop_size = gp.config['runcontrol']['pop_size']
     popgp = copy.deepcopy(gp.population)
     complexity_measure = gp.config['fitness']['complexityMeasure']
     function_map = gp.config['nodes']['functions']['function']
+    # fitfun = gp.config['fitness']['fitfun']
+    # usecache = gp.config['runcontrol']['usecache']
     xtr = gp.userdata['xtrain']
     xval = gp.userdata['xval']
     xts = gp.userdata['xtest']
+    
     ytr = gp.userdata['ytrain']
     yval = gp.userdata['yval']
     yts = gp.userdata['ytest']
-    ybin_tr = gp.userdata['ybinarytrain']
-    ybin_val = gp.userdata['ybinaryval']
-    ybin_ts = gp.userdata['ybinarytest']
     num_class = gp.config['runcontrol']['num_class']
     
 
@@ -38,12 +40,12 @@ def gp_evalfitness_ord(gp):
         batch_size = gp.config['softmax']['batch_size'][id_pop]
         epochs = gp.config['softmax']['epochs'][id_pop]
         patience = gp.config['softmax']['patience'][id_pop]
-        random_seed = gp.config['softmax']['random_seed'][id_pop]
-        buffer_size = gp.config['softmax']['buffer_size'][id_pop]
-        shuffle = gp.config['softmax']['shuffle'][id_pop]
-        verbose = gp.config['softmax']['verbose'][id_pop]
         # Update state to index of the individual that is about to be evaluated
         for id_ind in range(pop_size):
+            # print(' ')
+            # print('generation:', gen)
+            # print('id_pop:',id_pop)
+            # print('id_ind:',id_ind)
             if gp.config['runcontrol']['usecache'] and gp.cache['gene_output']['train'][id_pop][id_ind] is not None:
                 gene_out_tr =               copy.deepcopy(gp.cache['gene_output']['train'][id_pop][id_ind])
                 gene_out_val =              copy.deepcopy(gp.cache['gene_output']['validation'][id_pop][id_ind])
@@ -85,19 +87,11 @@ def gp_evalfitness_ord(gp):
                     else:
                         complexities_isolated += gp_getnumnodes(ind[id_gene])
                     
-                args = ytr, yval, yts, ybin_tr, ybin_val, ybin_ts, num_class, \
-                    optimizer_type, optimizer_param, initializer,\
+                args = ytr, yval, yts, num_class, optimizer_type, optimizer_param, initializer,\
                     regularization, regularization_rate, batch_size, epochs,\
-                    patience, random_seed, buffer_size, shuffle, verbose, id_pop, id_ind,\
-                    gene_out_tr, gene_out_val, gene_out_ts
-                
+                    patience, id_pop, id_ind, gene_out_tr, gene_out_val, gene_out_ts
                 # Training the softmax
-                if not gp.config['softmax']['use_tensorflow']:
-                    from .gp_evaluate_softmax_custom import gp_evaluate_softmax_custom
-                    results = gp_evaluate_softmax_custom(args)
-                elif gp.config['softmax']['use_tensorflow']:
-                    from .gp_evaluate_softmax_tensorflow import gp_evaluate_softmax_tensorflow
-                    results = gp_evaluate_softmax_tensorflow(args)
+                results = gp_evaluate_softmax(args)
                 # Assign results
                 prob_tr =       results[0]
                 prob_val =      results[1]
@@ -136,7 +130,7 @@ def gp_evalfitness_ord(gp):
             gp.individuals['complexity']['isolated'][id_ind, id_pop] =              copy.deepcopy(complexities_isolated)
             
     # Evaluating the Ensembles
-    results_en = gp_evaluate_ensemble_ord(gp)
+    results_en = gp_evaluate_ensemble(gp)
     # if num_pop > 1:
     #     # Evaluating the Ensembles
     #     results_en = gp_evaluate_ensemble(gp)

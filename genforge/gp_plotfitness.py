@@ -179,7 +179,7 @@ def gp_plotfitness(gp):
         plt.tight_layout()
 
         # Update the plot and process the event loop
-        plt.show(block=False)
+        # plt.show(block=False)
         fig.canvas.draw()
         fig.canvas.flush_events()
 
@@ -187,4 +187,5 @@ def gp_plotfitness(gp):
         for fmt in gp.config['runcontrol']['plot']['format']:
             fig.savefig(gp.config['runcontrol']['plot']['folder'] + f"{gp.runname}_FitnessVsGeneration.{fmt}", dpi=300, format=fmt)
 
-        plt.pause(0.1)
+        # plt.pause(0.1)
+        plt.close(fig)

@@ -13,6 +13,7 @@ DEFAULT_PARAMETERS = {
     'runcontrol_quiet': False,                          # If true, then GP runs with no console output
     'runcontrol_useparallel': False,                    # true to manually enable parallel CPU fitness evals (requires multiprocessing)
     'runcontrol_n_jobs': 1,                             # if parallel fitness evals enabled, this is the number of "CPUs" to use
+    'runcontrol_batch_size': 5,                         # number of tasks assigned to each core
     'runcontrol_showBestInputs': True,                  # if true then shows inputs in 'best' individual during run
     'runcontrol_showValBestInputs': False,              # if true then shows inputs in 'valbest' individual during run
     'runcontrol_timeout': np.Inf,                       # gp run will terminate if the run exceeds this values (seconds)
@@ -21,23 +22,24 @@ DEFAULT_PARAMETERS = {
     'runcontrol_usecache': True,                        # fitness caching: used when copying individuals in a gen
     'runcontrol_minimisation': True,                    # True if the problem is minimization and False if it is maximization
     'runcontrol_tolfit': 1e-9,                          # Tolfit means if fitness doesn't change as much as tolfit it is considered not improving
-    'runcontrol_plotfitness': True,                     # plot the stats
-    'runcontrol_plotrankall': True,
-    'runcontrol_plotrankbest': True,
+    'runcontrol_plotfitness': True,                     # plot the fitness
+    'runcontrol_plotrankall': True,                     # plot all individual rankings
+    'runcontrol_plotrankbest': True,                    # plot the best ensemble and individual rankings
     'runcontrol_plotformat': ['png'],                   # plot format
     'runcontrol_plotfolder': '',                        # plot folder
-    'softmax_learning_rate': [0.01],                    # num_pop: The learning rate for the softmax function
-    'softmax_optimizer_type': ['adam'],                 # num_pop: the optimizer type: adam, sgd, rmsprop
+    'softmax_optimizer_type': ['rmsprop'],              # num_pop: the optimizer type: adam, sgd, rmsprop
+    'softmax_optimizer_param': [{}],                    # num_pop: 
     'softmax_initializer': ['glorot_uniform'],          # num_pop: the initializer: glorot_uniform, he_normal, random_normal
-    'softmax_regularization': [None],                   # num_pop: l1 or l2 regularization
-    'softmax_regularization_rate': [0.01],              # num_pop: regularization rate
-    'softmax_batch_size': [1],                          # num_pop: batch size
-    'softmax_epochs': [30],                             # num_pop: number of epochs
-    'softmax_momentum': [0.9],                          # num_pop: momentum, required for sgd optimizer
-    'softmax_decay': [1e-6],                            # num_pop: decay rate, required for rmsprop and sgd optimizers
-    'softmax_clipnorm': [None],                         # num_pop: clipnorm, optional for any optimizer
-    'softmax_clipvalue': [None],                        # num_pop: clipvalue, optional for any optimizer
+    'softmax_regularization': [None],                   # num_pop: l1 or l2 or hybrid regularization
+    'softmax_regularization_rate': [0.01],              # num_pop: regularization rate. should be a list of length 2 if regularization is hybrid
+    'softmax_batch_size': [32],                         # num_pop: batch size
+    'softmax_epochs': [1000],                           # num_pop: number of epochs
     'softmax_patience': [10],                           # num_pop: patience epochs for earlystopping
+    'softmax_random_seed': [None],                      # num_pop: random seed number for reproducibility of softmax 
+    'softmax_buffer_size': [None],                      # num_pop: buffer size for shuffling inside softmax
+    'softmax_shuffle': [True],                          # num_pop: shuffle the training data in every epoch
+    'softmax_verbose': [0],                             # num_pop: frequency of displaying softmax training results
+    'softmax_use_tensorflow': False,                    # Choose custom (False) or tensorflow implementation (True) 
     'selection_tournament_size': [2],                   # num_pop: Tournament size
     'selection_elite_fraction': [0.05],                 # num_pop: Elite fraction in isolated population
     'selection_elite_fraction_ensemble': [0.05],        # num_pop: Elite fraction for all populations

@@ -113,12 +113,12 @@ def gp_plotrankbest(gp):
                 ax.scatter(generations, rank_top_en_in_iso[:, id_pop],# + offset[id_pop],
                            label = fr"$\mathrm{{Pop_{{{id_pop+1}}}\ ranking\ of\ best\ ensemble}}$",
                             # label=fr"$\mathrm{{ER(IR_{{{id_pop+1}}}={id_ind+1})}}$",  # Commenting out legend labels
-                            s = scatter_size, c = colors[id_pop], alpha = scatter_alpha, edgecolors = 'none')
+                            s = scatter_size, color = colors[id_pop], alpha = scatter_alpha, edgecolors = 'none')
 
             ax.scatter(generations, rank_top_iso_in_en,# + offset[id_pop],
                        label=r"$\mathrm{Ensemble\ ranking\ of\ best\ idividuals}$",
                         # label=fr"$\mathrm{{ER(IR_{{{id_pop+1}}}={id_ind+1})}}$",  # Commenting out legend labels
-                        s = scatter_size, c = colors[-1], alpha = scatter_alpha, edgecolors = 'none')
+                        s = scatter_size, color = colors[-1], alpha = scatter_alpha, edgecolors = 'none')
             
             # Apply axis limits and labels
             ax.set_xlim((-1, num_generations + 1))
@@ -162,7 +162,7 @@ def gp_plotrankbest(gp):
             ax.tick_params(axis='x', which='both', bottom=True, top=False, labelbottom=True)
 
         # Update the plot and process the event loop
-        plt.show(block=False)
+        # plt.show(block=False)
         fig.canvas.draw()
         fig.canvas.flush_events()
 
@@ -170,4 +170,5 @@ def gp_plotrankbest(gp):
         for fmt in gp.config['runcontrol']['plot']['format']:
             fig.savefig(gp.config['runcontrol']['plot']['folder'] + f"{gp.runname}_RankbestVsGeneration.{fmt}", dpi=300, format=fmt)
 
-        plt.pause(0.1)
+        # plt.pause(0.1)
+        plt.close(fig)

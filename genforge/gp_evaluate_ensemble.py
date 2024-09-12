@@ -1,8 +1,12 @@
 import numpy as np
 from itertools import product
 from scipy.optimize import minimize
-from tensorflow.keras.losses import SparseCategoricalCrossentropy
 import copy
+
+def loss(prob, Y):
+    log_likelihood = -np.sum(Y * np.log(prob + 1e-9), axis=1)
+    loss = np.mean(log_likelihood)
+    return loss
 
 def gp_evaluate_ensemble(gp):
     """
@@ -29,7 +33,9 @@ def gp_evaluate_ensemble(gp):
     y_train = gp.userdata['ytrain']
     y_val = gp.userdata['yval']
     y_test = gp.userdata['ytest']
-    ybinary_tr = gp.userdata['ybinarytrain']
+    ybin_tr = gp.userdata['ybinarytrain']
+    ybin_val = gp.userdata['ybinaryval']
+    ybin_ts = gp.userdata['ybinarytest']
     
     # Prepare lists to hold the best results
     best_ensemble_prob = [None for _ in range(num_individuals_pop1)]
@@ -68,7 +74,11 @@ def gp_evaluate_ensemble(gp):
                     # print('')
                     # print(weights1)
                     class_weights = weights1[start_idx:end_idx]
-                    normalized_weights[start_idx:end_idx] = class_weights / np.sum(class_weights)
+                    sum_class_weights = np.sum(class_weights)
+                    if sum_class_weights != 0:
+                        normalized_weights[start_idx:end_idx] = class_weights / sum_class_weights
+                    else:
+                        normalized_weights[start_idx:end_idx] = np.zeros_like(class_weights)
                 return normalized_weights
             
             def loss_function_other(prob_combo_tr, y_tr, weights1):
@@ -82,9 +92,9 @@ def gp_evaluate_ensemble(gp):
                         combined_prob[:, j] += prob_combo_tr[k][:, j] * normalized_weights[j * len(prob_combo_tr) + k]
                 
                 combined_prob = np.clip(combined_prob, 1e-12, 1 - 1e-12)  # Avoid log(0) error
-                loss = SparseCategoricalCrossentropy()(y_tr, combined_prob)
+                loss1 = loss(combined_prob, ybin_tr)
                 # print(f'Loss: {loss.numpy()} with weights: {normalized_weights}')
-                return loss.numpy()
+                return loss1
             
             # Define the loss function for optimizing ensemble weights
             def loss_function(weights1):
@@ -96,7 +106,7 @@ def gp_evaluate_ensemble(gp):
                         combined_prob[:, j] += prob_combo[k][:, j] * normalized_weights[j * len(prob_combo) + k]
                 # combined_prob += bias
                 # combined_prob = np.clip(combined_prob, 1e-15, 1 - 1e-15)  # Avoid log(0) error
-                mse_loss = np.mean(np.sum(np.square(ybinary_tr - combined_prob), axis = 1))  # Replace cross-entropy with MSE
+                mse_loss = np.mean(np.sum(np.square(ybin_tr - combined_prob), axis = 1))  # Replace cross-entropy with MSE
                 return mse_loss
 
             # Initial guess for weights (even distribution) and biases (zero)
@@ -141,7 +151,7 @@ def gp_evaluate_ensemble(gp):
             for j in range(prob_val_combo[0].shape[1]):
                 for k in range(len(prob_val_combo)):
                     combined_prob_val[:, j] += weights[id_ind][j * len(prob_val_combo) + k] * prob_val_combo[k][:, j]
-            fit_ens_val[id_ind] =    SparseCategoricalCrossentropy()(y_val, combined_prob_val).numpy()
+            fit_ens_val[id_ind] = loss(combined_prob_val, ybin_val)
     if y_test is not None:
         for idx_en in range(id_ens.shape[0]):
             prob_test_combo = [copy.deepcopy(gp.individuals['prob']['isolated']['test'][p][int(id_ens[idx_en, p])]) for p in range(num_pop)]
@@ -149,7 +159,7 @@ def gp_evaluate_ensemble(gp):
             for j in range(prob_test_combo[0].shape[1]):
                 for k in range(len(prob_test_combo)):
                     combined_prob_ts[:, j] += weights[id_ind][j * len(prob_test_combo) + k] * prob_test_combo[k][:, j]
-            fit_ens_ts[id_ind] =    SparseCategoricalCrossentropy()(y_test, combined_prob_ts).numpy()
+            fit_ens_ts[id_ind] = loss(combined_prob_ts, ybin_ts)
     
     # Compute ensemble complexity
     complexity_ensemble = np.zeros((pop_size))
@@ -201,7 +211,7 @@ def gp_evaluate_ensemble(gp):
                 combined_prob_val += best_weights[id_ind][k] * prob_val_combo[k]
             
             prob_en_val[id_ind] =   copy.deepcopy(combined_prob_val)
-            fit_en_val[id_ind] =    SparseCategoricalCrossentropy()(y_val, combined_prob_val).numpy()
+            fit_en_val[id_ind] =    loss(combined_prob_val, ybin_val)
             loss_en_val[id_ind] =   copy.deepcopy(fit_en_val[id_ind])
             yp_en_val[id_ind] =     np.argmax(combined_prob_val, axis=1)
             
@@ -214,7 +224,7 @@ def gp_evaluate_ensemble(gp):
                 combined_prob_ts += best_weights[id_ind][k] * prob_ts_combo[k]
             
             prob_en_ts[id_ind] =    copy.deepcopy(combined_prob_ts)
-            fit_en_ts[id_ind] =     SparseCategoricalCrossentropy()(gp.userdata['ytest'], combined_prob_ts).numpy()
+            fit_en_ts[id_ind] =     loss(combined_prob_ts, ybin_ts)
             loss_en_ts[id_ind] =    copy.deepcopy(fit_en_ts[id_ind])
             yp_en_ts[id_ind] =      np.argmax(combined_prob_ts, axis=1).copy()
             

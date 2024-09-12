@@ -2,9 +2,19 @@
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+# # Ensure TensorFlow uses a single thread
+# os.environ['MKL_NUM_THREADS'] = '1'
+# os.environ['OPENBLAS_NUM_THREADS'] = '1'
+# os.environ['OMP_NUM_THREADS'] = '1'
+# os.environ['NUMEXPR_NUM_THREADS'] = '1'
 import warnings
 import numpy as np
 import tensorflow as tf
+# # Disable TensorFlow multi-threading to avoid overhead
+# tf.config.threading.set_intra_op_parallelism_threads(1)
+# tf.config.threading.set_inter_op_parallelism_threads(1)
+# # To disable GPU usage entirely and ensure CPU-only execution
+# tf.config.set_visible_devices([], 'GPU')
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.losses import SparseCategoricalCrossentropy
@@ -32,7 +42,7 @@ tf.keras.utils.disable_interactive_logging()
 #     def on_test_batch_end(self, batch, logs=None):
 #         pass
     
-def gp_evaluate_softmax(args):
+def gp_evaluate_softmax_tensorflow(args):
     
     """
     Train a one-layer softmax function using Keras and evaluate the probabilities and losses.
@@ -55,9 +65,11 @@ def gp_evaluate_softmax(args):
     tuple: A tuple containing the evaluated probabilities and the loss value.
            (probabilities, loss)
     """
-    ytr, yval, yts, num_class, learning_rate, optimizer_type, initializer, regularization,\
-        regularization_rate, batch_size, epochs, momentum, decay, clipnorm, clipvalue, patience,\
-            id_pop, id_ind, gene_out_tr, gene_out_val, gene_out_ts = args
+    ytr, yval, yts, ybin_tr, ybin_val, ybin_ts, num_class, \
+        optimizer_type, optimizer_param, initializer,\
+        regularization, regularization_rate, batch_size, epochs,\
+        patience, random_seed, buffer_size, shuffle, verbose, id_pop, id_ind,\
+        gene_out_tr, gene_out_val, gene_out_ts = args
     # Extract the gene output and labels from the GP object
     # gene_out_tr = gp.individuals['gene_output']['train'][id_pop][id_ind]
     # gene_out_val = gp.individuals['gene_output']['validation'][id_pop][id_ind]
@@ -111,11 +123,16 @@ def gp_evaluate_softmax(args):
     
     # Choose the optimizer
     if optimizer_type == 'sgd':
-        optimizer = SGD(learning_rate=learning_rate, momentum=momentum, decay=decay, clipnorm=clipnorm, clipvalue=clipvalue)
+        optimizer = SGD(learning_rate=optimizer_param['learning_rate'], \
+                        momentum=optimizer_param['momentum'], decay=optimizer_param['decay'],\
+                        clipnorm=optimizer_param['clipnorm'], clipvalue=optimizer_param['clipvalue'])
     elif optimizer_type == 'rmsprop':
-        optimizer = RMSprop(learning_rate=learning_rate, decay=decay, clipnorm=clipnorm, clipvalue=clipvalue)
+        optimizer = RMSprop(learning_rate=optimizer_param['learning_rate'],\
+                        decay=optimizer_param['weight_decay'], clipnorm=optimizer_param['clipnorm'],\
+                        clipvalue=optimizer_param['clipvalue'])
     elif optimizer_type == 'adam':
-        optimizer = Adam(learning_rate=learning_rate, clipnorm=clipnorm, clipvalue=clipvalue)  # Default
+        optimizer = Adam(learning_rate=optimizer_param['learning_rate'], \
+                        clipnorm=optimizer_param['clipnorm'], clipvalue=optimizer_param['clipvalue'])  # Default
     
     # Compile the model with the chosen optimizer
     model.compile(optimizer=optimizer,

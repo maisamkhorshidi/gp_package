@@ -14,6 +14,25 @@
 - **Scalability**: Suitable for small-scale research projects as well as large, industrial-grade applications.
 - **Advanced Visualization**: Built-in tools to visualize the evolution of populations and fitness metrics across generations.
 
+## Authors
+
+- **Mohammad Sadegh Khorshidi**  
+  Faculty of Information and IT, University of Technology Sydney  
+  Email: msadegh.khorshidi.ak@gmail.com  
+
+- **Mohammad Reza Nikoo**  
+  Department of Civil and Architectural Engineering, Sultan Qaboos University, Muscat, Oman  
+  Email: m.reza@squ.edu.om  
+
+- **Fang Chen**  
+  Faculty of Information and IT, University of Technology Sydney  
+  Email: fang.chen@uts.edu.au  
+
+- **Amir H. Gandomi**  
+  Faculty of Information and IT, University of Technology Sydney;  
+  University Research and Innovation Center (EKIK), Óbuda University  
+  Email: gandomi@uts.edu.au  
+
 ## Installation
 
 To install GenForge, clone the repository and install the package using pip:
